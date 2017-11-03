@@ -22,10 +22,14 @@
 
 using namespace libhdht;
 
-int main() {
+int main()
+{
     libhdht::init();
 
-    // do stuff
+    ServerContext ctx;
+    ctx.start();
+
+    // run an IO event loop here (maybe libuv based? or glib based?)
 
     libhdht::fini();
 }

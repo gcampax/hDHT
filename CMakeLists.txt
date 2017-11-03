@@ -39,16 +39,23 @@ ensure_default_value(SHARE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}/share")
 ensure_default_value(LOCALE_INSTALL_DIR "${SHARE_INSTALL_PREFIX}/locale")
 ensure_default_value(SYSCONF_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/etc")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++14 -Wall -Werror")
+
 set(HEADERS include/libhdht/libhdht.hpp)
 
-add_library(libhdht SHARED
-	lib/libhdht.cpp)
-target_include_directories(libhdht PUBLIC "include/")
+add_library(hdht SHARED
+	lib/dht.cpp
+	lib/libhdht.cpp
+	lib/geo.cpp
+	lib/node.cpp
+	lib/server.cpp
+)
+target_include_directories(hdht PUBLIC "include/")
 
 add_executable(hdhtd server/main.cpp)
-target_link_libraries(hdhtd libhdht)
+target_link_libraries(hdhtd hdht)
 target_include_directories(hdhtd PUBLIC "lib/")
 
 install (TARGETS hdhtd DESTINATION bin)
-install (TARGETS libhdht DESTINATION ${LIB_INSTALL_DIR})
+install (TARGETS hdht DESTINATION ${LIB_INSTALL_DIR})
 install (FILES ${HEADERS} DESTINATION ${INCLUDE_INSTALL_DIR}/libhdht)

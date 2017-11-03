@@ -20,17 +20,36 @@
 
 #include <libhdht/libhdht.hpp>
 
+#include <cmath>
+
 namespace libhdht {
 
-void init()
-{
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
+static inline double
+to_radians(double deg) {
+    return deg * M_PI / 180.0;
 }
 
-void fini()
+double
+GeoPoint2D::distance(GeoPoint2D& one, GeoPoint2D& two)
 {
-    // release any resource associated with the library
+    const double R = 6371000; // meters
+    double lat1 = one.latitude;
+    double lat2 = two.latitude;
+    double lon1 = one.longitude;
+    double lon2 = two.longitude;
+
+    // formula courtesy of http://www.movable-type.co.uk/scripts/latlong.html
+    double phi1 = to_radians(lat1);
+    double phi2 = to_radians(lat2);
+    double deltaphi = to_radians(lat2-lat1);
+    double deltalambda = to_radians(lon2-lon1);
+
+    double x = std::sin(deltaphi/2) * std::sin(deltaphi/2) +
+            std::cos(phi1) * std::cos(phi2) *
+            std::sin(deltalambda/2) * std::sin(deltalambda/2);
+    double c = 2 * std::atan2(std::sqrt(x), std::sqrt(1-x));
+
+    return R * c;
 }
 
 }

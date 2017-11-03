@@ -18,19 +18,33 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
+
+#include <cstdlib>
+#include <algorithm>
+#include <vector>
+#include <unordered_set>
+
+#include "net.hpp"
+#include "server-node.hpp"
+#include "client-node.hpp"
+#include "dht.hpp"
 
 namespace libhdht {
 
-void init()
+// The context for a single server instance of libhdht
+class ServerContext
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
+    Table m_table;
+    std::vector<net::Socket> m_sockets;
+    std::vector<ServerNode*> m_server_nodes;
 
-void fini()
-{
-    // release any resource associated with the library
-}
+public:
+    ServerContext() {}
+    ~ServerContext() {}
+
+    // start serving requests
+    void start();
+};
 
 }

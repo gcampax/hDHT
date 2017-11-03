@@ -22,18 +22,54 @@
 
 #include <cstdlib>
 #include <algorithm>
+#include <vector>
+#include <unordered_set>
 
-// public includes of the library
-#include "net.hpp"
 #include "node.hpp"
-#include "client-node.hpp"
-#include "server-node.hpp"
-#include "dht.hpp"
-#include "server.hpp"
 
 namespace libhdht {
 
-void init();
-void fini();
+// A node in the DHT that acts as a server
+class ServerNode : public Node
+{
+public:
+    ServerNode(const NodeID& id) : Node(id) {}
+    ~ServerNode() {}
+
+    bool is_client() const override
+    {
+        return false;
+    }
+};
+
+// A server node owned by this library/process
+class LocalServerNode : public ServerNode
+{
+    // the clients that are registered with this server
+    std::vector<Node*> m_clients;
+
+    // the immediate successor in the DHT
+    ServerNode *next = nullptr;
+
+public:
+    LocalServerNode(const NodeID& id) : ServerNode(id) {}
+
+    bool is_local() const override
+    {
+        return true;
+    }
+};
+
+// A server node somewhere else in the world
+class RemoteServerNode : public ServerNode
+{
+public:
+    RemoteServerNode(const NodeID& id) : ServerNode(id) {}
+
+    bool is_local() const override
+    {
+        return false;
+    }
+};
 
 }

@@ -20,17 +20,53 @@
 
 #include <libhdht/libhdht.hpp>
 
+#include <cctype>
+#include <exception>
+
 namespace libhdht {
 
-void init()
+NodeID::NodeID()
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
+    memset(m_parts, 0, sizeof(m_parts));
 }
 
-void fini()
+static inline uint8_t
+hex_to_int(char c)
 {
-    // release any resource associated with the library
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    else
+        return c - 'a';
 }
+
+NodeID::NodeID(const std::string& str)
+{
+    if (str.size() != sizeof(m_parts) * 2)
+        throw std::invalid_argument("Invalid node ID");
+
+    for (unsigned i = 0; i < sizeof(m_parts); i++) {
+        char c1 = str[i*2];
+        char c2 = str[i*2+1];
+
+        if (!std::isxdigit(c1) || std::isxdigit(c2))
+            throw std::invalid_argument("Invalid node ID");
+
+        m_parts[i] = hex_to_int(c1) << 4 | hex_to_int(c2);
+    }
+}
+
+NodeID::NodeID(const GeoPoint2D& point)
+{
+    // TODO do something
+    memset(m_parts, 0, sizeof(m_parts));
+}
+
+GeoPoint2D
+NodeID::to_point() const
+{
+    // TODO: do something
+    return GeoPoint2D{ 0, 0 };
+}
+
 
 }

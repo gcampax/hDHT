@@ -18,19 +18,36 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+
+#include <cstring>
 
 namespace libhdht {
 
-void init()
-{
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
+namespace net {
 
-void fini()
+class Address
 {
-    // release any resource associated with the library
-}
+private:
+    sockaddr_in m_address;
 
+public:
+    Address() {
+        std::memset(&m_address, 0, sizeof(m_address));
+    }
+};
+
+class Socket
+{
+    Address m_address;
+    int m_fd;
+
+    // more stuff, like connecting and disconnecting and sending messages around...
+};
+
+}
 }

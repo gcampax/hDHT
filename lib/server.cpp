@@ -20,17 +20,12 @@
 
 #include <libhdht/libhdht.hpp>
 
-namespace libhdht {
-
-void init()
+namespace libhdht
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
 
-void fini()
+void ServerContext::start()
 {
-    // release any resource associated with the library
+    // do something
 }
 
 }

@@ -22,18 +22,55 @@
 
 #include <cstdlib>
 #include <algorithm>
+#include <vector>
+#include <unordered_set>
+#include <unordered_map>
 
-// public includes of the library
 #include "net.hpp"
 #include "node.hpp"
-#include "client-node.hpp"
-#include "server-node.hpp"
-#include "dht.hpp"
-#include "server.hpp"
 
 namespace libhdht {
 
-void init();
-void fini();
+// A client (ie, a mobile phone with a real-world location) in the DHT
+class ClientNode : public Node
+{
+    std::unordered_map<std::string, std::string> m_metadata;
+
+public:
+    ClientNode(const NodeID& id) : Node(id) {}
+    ~ClientNode() {}
+
+    const std::string& get_metadata(const std::string key) const;
+
+    bool is_client() const override
+    {
+        return true;
+    }
+};
+
+// A client node that is running in this library/process
+class LocalClientNode : public ClientNode
+{
+public:
+    LocalClientNode(const NodeID& id) : ClientNode(id) {}
+
+    bool is_local() const override
+    {
+        return true;
+    }
+};
+
+// A client node that is not running in this process (and therefore is behind RPC)
+class RemoteClientNode : public ClientNode
+{
+public:
+    RemoteClientNode(const NodeID& id) : ClientNode(id) {}
+
+    bool is_local() const override
+    {
+        return false;
+    }
+};
+
 
 }

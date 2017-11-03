@@ -18,19 +18,34 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
+
+#include <cstdlib>
+#include <algorithm>
+#include <map>
+
+#include "node.hpp"
+#include "client-node.hpp"
+#include "server-node.hpp"
 
 namespace libhdht {
 
-void init()
+// the actual table, holds pointers to all the nodes, and is responsible
+// for freeing them
+class Table
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
+    std::map<NodeID, Node*> m_known_nodes;
 
-void fini()
-{
-    // release any resource associated with the library
-}
+public:
+    Table() {}
+    ~Table();
+
+    Node *get_existing_node(const NodeID&) const;
+    LocalClientNode *get_or_create_local_client_node(const NodeID&);
+    LocalServerNode *get_or_create_local_server_node(const NodeID&);
+
+    RemoteServerNode *get_or_create_remote_server_node(const NodeID&);
+    RemoteClientNode *get_or_create_remote_client_node(const NodeID&);
+};
 
 }

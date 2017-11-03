@@ -18,19 +18,19 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
+
+#include <cstdlib>
+#include <algorithm>
 
 namespace libhdht {
 
-void init()
+struct GeoPoint2D
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
+    double latitude;
+    double longitude;
 
-void fini()
-{
-    // release any resource associated with the library
-}
+    static double distance(GeoPoint2D& one, GeoPoint2D& two);
+};
 
 }
