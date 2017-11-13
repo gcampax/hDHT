@@ -25,6 +25,7 @@
 #include <netinet/ip.h>
 
 #include <cstring>
+#include <functional>
 
 namespace libhdht {
 
@@ -33,21 +34,56 @@ namespace net {
 class Address
 {
 private:
-    sockaddr_in m_address;
+    sockaddr_storage m_address;
 
 public:
-    Address() {
+    Address()
+    {
         std::memset(&m_address, 0, sizeof(m_address));
     }
-};
+    Address(const std::string&);
 
-class Socket
-{
-    Address m_address;
-    int m_fd;
+    sa_family_t family() const
+    {
+        return m_address.ss_family;
+    }
 
-    // more stuff, like connecting and disconnecting and sending messages around...
+    const sockaddr *get() const
+    {
+        return (const sockaddr*)&m_address;
+    }
+    sockaddr *get()
+    {
+        return (sockaddr*)&m_address;
+    }
+    size_t size() const
+    {
+        if (m_address.ss_family == 0)
+            return 0;
+        if (m_address.ss_family == AF_INET)
+            return sizeof(sockaddr_in);
+        else
+            return sizeof(sockaddr_in6);
+    }
+
+    bool operator==(const net::Address& other) const
+    {
+        if (family() != other.family())
+            return false;
+        return memcmp(&m_address, &other.m_address, size()) == 0;
+    }
+
+    std::string to_string() const;
 };
 
 }
+
+}
+
+namespace std {
+    template<>
+    struct hash<libhdht::net::Address>
+    {
+        size_t operator()(const libhdht::net::Address& address) const;
+    };
 }

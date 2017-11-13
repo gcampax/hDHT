@@ -26,10 +26,12 @@ int main()
 {
     libhdht::init();
 
-    ServerContext ctx;
-    ctx.start();
+    libhdht::uv::Loop event_loop;
 
-    // run an IO event loop here (maybe libuv based? or glib based?)
+    ServerContext ctx(event_loop);
+    //ctx.add_address();
+
+    event_loop.run();
 
     libhdht::fini();
 }

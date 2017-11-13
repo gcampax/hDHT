@@ -18,43 +18,59 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
 
-#ifdef HAVE_SYSTEMD
-#include <systemd/sd-journal.h>
-#endif
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <vector>
 
-namespace libhdht {
+#include "uv.h"
 
-void init()
+namespace libhdht
 {
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
 
-void fini()
+namespace protocol
 {
-    // release any resource associated with the library
-}
 
-#ifdef HAVE_SYSTEMD
-static int(*logger)(int, const char*, va_list) = sd_journal_printv;
-#else
-static int(*logger)(int, const char*, va_list) = vsyslog;
-#endif
-
-void
-set_log_function(int(*function)(int, const char*, va_list))
+enum class Opcode : uint16_t
 {
-    logger = function;
-}
+    Hello
+};
 
-void log(int level, const char* msg, ...)
+struct MessageHeader
 {
-    va_list va;
-    va_start(va, msg);
-    logger(level, msg, va);
-    va_end(va);
-}
+    uint16_t opcode;
+    uint64_t request_id;
+} __attribute__((packed));
+
+struct BaseRequest
+{
+    MessageHeader header;
+    uint64_t object_id;
+} __attribute__((packed));
+
+struct BaseResponse {
+    MessageHeader header;
+    uint32_t error;
+};
+
+template<typename T>
+struct EmptyRequest {
+    uv::Buffer marshal() {
+        return uv::Buffer(nullptr, 0);
+    }
+    static T unmarshal(const uv::Buffer&) {
+        return T();
+    }
+};
+
+struct Hello {
+    static const Opcode opcode = Opcode::Hello;
+    typedef struct HelloRequest : public EmptyRequest<HelloRequest> {} request_type;
+    typedef struct HelloResponse : public EmptyRequest<HelloResponse> {} response_type;
+};
 
 }
+}
+

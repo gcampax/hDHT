@@ -18,43 +18,15 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
 
-#ifdef HAVE_SYSTEMD
-#include <systemd/sd-journal.h>
-#endif
+#include <cstdlib>
+#include <algorithm>
+#include <sys/syslog.h>
 
 namespace libhdht {
 
-void init()
-{
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
-
-void fini()
-{
-    // release any resource associated with the library
-}
-
-#ifdef HAVE_SYSTEMD
-static int(*logger)(int, const char*, va_list) = sd_journal_printv;
-#else
-static int(*logger)(int, const char*, va_list) = vsyslog;
-#endif
-
-void
-set_log_function(int(*function)(int, const char*, va_list))
-{
-    logger = function;
-}
-
-void log(int level, const char* msg, ...)
-{
-    va_list va;
-    va_start(va, msg);
-    logger(level, msg, va);
-    va_end(va);
-}
+void set_log_function(int(*function)(int, const char*, va_list));
+void log(int level, const char* msg, ...);
 
 }

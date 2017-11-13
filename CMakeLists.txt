@@ -14,6 +14,7 @@ include(CheckFunctionExists)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
 include(PrintableOptions)
+include(FindPkgConfig)
 
 add_printable_variable(LIB_SUFFIX "Library directory suffix, usually defined to '64' for x86_64 systems" "")
 add_printable_variable_bare(CMAKE_INSTALL_PREFIX)
@@ -41,20 +42,33 @@ ensure_default_value(SYSCONF_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/etc")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++14 -Wall -Werror")
 
+pkg_check_modules(UV REQUIRED libuv)
+pkg_check_modules(SYSTEMD libsystemd)
+
 set(HEADERS include/libhdht/libhdht.hpp)
 
 add_library(hdht SHARED
 	lib/dht.cpp
 	lib/libhdht.cpp
 	lib/geo.cpp
+	lib/net.cpp
 	lib/node.cpp
+	lib/rpc.cpp
 	lib/server.cpp
+	lib/uv.cpp
 )
 target_include_directories(hdht PUBLIC "include/")
+target_compile_options(hdht PUBLIC ${UV_CFLAGS})
+target_include_directories(hdht PUBLIC ${UV_INCLUDE_DIRS})
+target_link_libraries(hdht PUBLIC ${UV_LIBRARIES})
+if(SYSTEMD_FOUND)
+	target_compile_options(hdht PUBLIC "-DHAVE_SYSTEMD=1 ${SYSTEMD_CFLAGS}")
+	target_include_directories(hdht PUBLIC ${SYSTEMD_INCLUDE_DIRS})
+	target_link_libraries(hdht PUBLIC ${SYSTEMD_LIBRARIES})
+endif(SYSTEMD_FOUND)
 
 add_executable(hdhtd server/main.cpp)
 target_link_libraries(hdhtd hdht)
-target_include_directories(hdhtd PUBLIC "lib/")
 
 install (TARGETS hdhtd DESTINATION bin)
 install (TARGETS hdht DESTINATION ${LIB_INSTALL_DIR})

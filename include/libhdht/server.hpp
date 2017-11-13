@@ -29,22 +29,25 @@
 #include "server-node.hpp"
 #include "client-node.hpp"
 #include "dht.hpp"
+#include "uv.hpp"
+#include "rpc.hpp"
 
 namespace libhdht {
 
 // The context for a single server instance of libhdht
 class ServerContext
 {
+private:
+    rpc::Context m_rpc;
     Table m_table;
-    std::vector<net::Socket> m_sockets;
     std::vector<ServerNode*> m_server_nodes;
 
 public:
-    ServerContext() {}
+    ServerContext(uv::Loop& loop) : m_rpc(loop) {}
     ~ServerContext() {}
 
-    // start serving requests
-    void start();
+    // expose this server on this address
+    void add_address(const net::Address& address);
 };
 
 }

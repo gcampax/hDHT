@@ -23,9 +23,10 @@
 namespace libhdht
 {
 
-void ServerContext::start()
+void
+ServerContext::add_address(const net::Address& address)
 {
-    // do something
+    m_rpc.add_address(address);
 }
 
 }

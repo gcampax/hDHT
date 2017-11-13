@@ -21,15 +21,19 @@
 #pragma once
 
 #include <cstdlib>
+#include <cstdarg>
 #include <algorithm>
 
 // public includes of the library
+#include "logging.hpp"
 #include "net.hpp"
 #include "node.hpp"
 #include "client-node.hpp"
 #include "server-node.hpp"
 #include "dht.hpp"
 #include "server.hpp"
+
+// do not include uv.hpp or rpc.hpp here, they are not public
 
 namespace libhdht {
 

@@ -35,6 +35,35 @@ namespace libhdht
 namespace uv
 {
 
+class Error : public std::exception
+{
+private:
+    int m_status;
+
+public:
+    Error(int status) : m_status(status) {}
+
+    virtual const char* what() const noexcept override
+    {
+        return uv_strerror(m_status);
+    }
+
+    explicit operator bool() const
+    {
+        return m_status != 0;
+    }
+    bool operator==(int status) const
+    {
+        return m_status == status;
+    }
+
+    static void check(int status)
+    {
+        if (status != 0)
+            throw uv::Error(status);
+    }
+};
+
 class TCPSocket;
 
 class Loop
@@ -64,11 +93,65 @@ public:
     }
 };
 
-class TCPSocket : private uv_tcp_t, public std::enable_shared_from_this<TCPSocket>
+class Buffer : public uv_buf_t
 {
 private:
-    TCPSocket(uv_loop_t* loop);
+    bool owns_memory;
 
+public:
+    Buffer(const uint8_t* buffer, size_t length, bool own_memory = false) {
+        base = (char*)buffer;
+        len = length;
+        owns_memory = own_memory;
+    }
+    Buffer(const Buffer& buffer) = delete;
+    Buffer(Buffer&& other) {
+        base = other.base;
+        len = other.len;
+        owns_memory = other.owns_memory;
+        other.owns_memory = false;
+    }
+    ~Buffer() {
+        if (owns_memory)
+            free(base);
+    }
+    // Buffer has some tricky properties when it comes to
+    // copy and move semantics, and to make sure the code
+    // using Buffer knows what's going on, make sure it
+    // always goes through constructors and not assignments
+    Buffer& operator=(const Buffer&) = delete;
+    Buffer& operator=(Buffer&&) = delete;
+
+    explicit operator bool() const {
+        return base != nullptr;
+    }
+
+    static Buffer allocate(size_t size) {
+        Buffer buf(nullptr, 0);
+        buf.base = (char*)malloc(size);
+        if (!buf)
+            return buf;
+        buf.len = size;
+        return buf;
+    }
+
+    Buffer clone() const {
+        Buffer new_buf(nullptr, 0);
+        new_buf.base = (char*)malloc(len);
+        if (!new_buf) {
+            new_buf.len = 0;
+            return new_buf;
+        }
+        new_buf.owns_memory = true;
+        memcpy(new_buf.base, base, len);
+        new_buf.len = len;
+        return new_buf;
+    }
+};
+
+class TCPSocket : private uv_tcp_t
+{
+private:
     template<typename T>
     static inline T* handle_cast(TCPSocket *socket) {
         return (T*)(static_cast<uv_tcp_t*>(socket));
@@ -78,30 +161,64 @@ private:
         return static_cast<TCPSocket*>((uv_tcp_t*)(socket));
     }
 
-public:
-    ~TCPSocket() {
-        uv_close(handle_cast<uv_handle_t>(this), nullptr);
-    }
+    bool m_usable = false;
 
-    static std::shared_ptr<TCPSocket> create(Loop& loop) {
-        return std::shared_ptr<TCPSocket>(new TCPSocket(loop.loop()));
+public:
+    TCPSocket(uv_loop_t* loop);
+    TCPSocket(Loop& loop) : TCPSocket(loop.loop()) {}
+    TCPSocket(const TCPSocket&) = delete;
+    TCPSocket& operator=(const TCPSocket&) = delete;
+    TCPSocket& operator=(TCPSocket&&) = default;
+    TCPSocket(TCPSocket&& other) = default;
+
+    virtual ~TCPSocket() {}
+
+    bool is_usable() const
+    {
+        return m_usable;
     }
+    net::Address get_peer_name() const;
 
     void connect(const net::Address& address);
     void listen(const net::Address& address);
+    void ref()
+    {
+        uv_ref(handle_cast<uv_handle_t>(this));
+    }
+    void unref()
+    {
+        uv_unref(handle_cast<uv_handle_t>(this));
+    }
+    void close();
 
     void start_reading();
     void stop_reading() {
         uv_read_stop(handle_cast<uv_stream_t>(this));
     }
-    void write(uint64_t req_id, const uint8_t* buffer, size_t length);
+    void write(uint64_t req_id, const Buffer* buffers, size_t nbuffers);
+    void accept(TCPSocket *client);
 
     // override in subclasses to handle async IO results
-    virtual void connected(int status) {}
-    virtual void listen_error(int status) {}
-    virtual void new_connection(std::shared_ptr<TCPSocket> socket) {}
-    virtual void read_callback(ssize_t nread, const uint8_t* buffer, size_t length) {}
-    virtual void write_complete(uint64_t req_id, int status) {}
+    virtual void connected(Error) {}
+    virtual void closed() {
+        // free any memory associated with this socket
+        delete this;
+    }
+    virtual void listen_error(Error)
+    {
+        close();
+    }
+    virtual void new_connection() {}
+    virtual void read_callback(Error err, const uv::Buffer&)
+    {
+        if (err)
+            close();
+    }
+    virtual void write_complete(uint64_t, Error err)
+    {
+        if (err)
+            close();
+    }
 };
 
 }
