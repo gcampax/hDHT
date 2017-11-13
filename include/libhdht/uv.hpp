@@ -68,14 +68,8 @@ class TCPSocket;
 
 class Loop
 {
-friend class TCPSocket;
-
 private:
     uv_loop_t m_loop;
-
-    uv_loop_t *loop() {
-        return &m_loop;
-    }
 
 public:
     Loop() {
@@ -83,6 +77,10 @@ public:
     }
     ~Loop() {
         uv_loop_close(&m_loop);
+    }
+
+    uv_loop_t *loop() {
+        return &m_loop;
     }
 
     void run() {
@@ -168,10 +166,10 @@ public:
     TCPSocket(Loop& loop) : TCPSocket(loop.loop()) {}
     TCPSocket(const TCPSocket&) = delete;
     TCPSocket& operator=(const TCPSocket&) = delete;
-    TCPSocket& operator=(TCPSocket&&) = default;
-    TCPSocket(TCPSocket&& other) = default;
+    TCPSocket& operator=(TCPSocket&&) = delete;
+    TCPSocket(TCPSocket&& other) = delete;
 
-    virtual ~TCPSocket() {}
+    virtual ~TCPSocket();
 
     bool is_usable() const
     {
@@ -204,8 +202,9 @@ public:
         // free any memory associated with this socket
         delete this;
     }
-    virtual void listen_error(Error)
+    virtual void listen_error(Error err)
     {
+        log(LOG_ERR, "Failed to setup listening socket: %s", err.what());
         close();
     }
     virtual void new_connection() {}

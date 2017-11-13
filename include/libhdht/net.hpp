@@ -26,10 +26,23 @@
 
 #include <cstring>
 #include <functional>
+#include <string>
+#include <vector>
 
 namespace libhdht {
 
+namespace uv {
+class Loop;
+class Error;
+}
+
 namespace net {
+
+class Error : public std::runtime_error
+{
+public:
+    Error(const char* msg) : std::runtime_error(msg) {}
+};
 
 class Address
 {
@@ -39,13 +52,39 @@ private:
 public:
     Address()
     {
-        std::memset(&m_address, 0, sizeof(m_address));
+        memset(&m_address, 0, sizeof(m_address));
+    }
+    Address(uint16_t port)
+    {
+        memset(&m_address, 0, sizeof(m_address));
+        sockaddr_in6* ipv6_address = (sockaddr_in6*)&m_address;
+        ipv6_address->sin6_family = AF_INET6;
+        ipv6_address->sin6_port = htons(port);
+    }
+    Address(socklen_t length, struct sockaddr* addr)
+    {
+        memcpy(&m_address, addr, length);
     }
     Address(const std::string&);
+
+    bool is_valid() const
+    {
+        return m_address.ss_family != 0;
+    }
 
     sa_family_t family() const
     {
         return m_address.ss_family;
+    }
+
+    uint16_t get_port() const
+    {
+        if (m_address.ss_family == 0)
+            return 0;
+        if (m_address.ss_family == AF_INET)
+            return ntohs(((sockaddr_in*)&m_address)->sin_port);
+        else
+            return ntohs(((sockaddr_in6*)&m_address)->sin6_port);
     }
 
     const sockaddr *get() const
@@ -74,6 +113,25 @@ public:
     }
 
     std::string to_string() const;
+};
+
+class Name
+{
+private:
+    std::string m_hostname;
+    uint16_t m_port;
+
+public:
+    Name(const std::string& hostname, uint16_t port) : m_hostname(hostname), m_port(port) {}
+    Name(const std::string& hostandport);
+
+    void resolve(uv::Loop& loop, std::function<void(uv::Error, const std::vector<net::Address>&)> callback) const;
+    template<typename Callback>
+    void resolve(uv::Loop& loop, Callback&& callback) const {
+        resolve(loop, std::function<void(uv::Error)>(std::forward<Callback>(callback)));
+    }
+
+    std::vector<net::Address> resolve_sync() const;
 };
 
 }

@@ -32,6 +32,7 @@
 #include "server-node.hpp"
 #include "dht.hpp"
 #include "server.hpp"
+#include "protocol.hpp"
 
 // do not include uv.hpp or rpc.hpp here, they are not public
 

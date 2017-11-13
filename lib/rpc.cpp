@@ -22,7 +22,6 @@
 #include <libhdht/rpc.hpp>
 
 #include <new>
-#include <iostream>
 
 namespace libhdht
 {
@@ -113,6 +112,7 @@ void
 Peer::adopt_connection(Connection* connection)
 {
     m_available_connections.push_back(connection);
+    connection->start_reading();
 }
 
 void
@@ -138,8 +138,9 @@ public:
     Server& operator=(const Server&) = delete;
     Server& operator=(Server&&) = delete;
 
-    virtual void new_connection() {
+    virtual void new_connection() override {
         Connection* connection = new Connection(m_context);
+        accept(connection);
         m_context->new_connection(connection);
     }
 };
@@ -147,9 +148,12 @@ public:
 void
 Context::add_address(const net::Address& address)
 {
-    auto socket = std::make_shared<Server>(this);
+    auto socket = std::make_unique<Server>(this);
     socket->listen(address);
-    m_listening_sockets.push_back(socket);
+    socket->start_reading();
+    m_listening_sockets.push_back(std::move(socket));
+
+    log(LOG_INFO, "Listening on address %s", address.to_string().c_str());
 }
 
 std::shared_ptr<Peer>
@@ -175,9 +179,11 @@ Context::new_connection(Connection* connection)
 {
     try {
         net::Address address = connection->get_peer_name();
+        log(LOG_INFO, "New connection from %s", address.to_string().c_str());
+
         get_peer(address)->adopt_connection(connection);
     } catch(std::exception& e) {
-        std::cerr << "Failed to handle new connection: " << e.what() << std::endl;
+        log(LOG_WARNING, "Failed to handle new connection: %s", e.what());
     }
 }
 

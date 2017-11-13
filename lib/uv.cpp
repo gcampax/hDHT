@@ -34,6 +34,12 @@ TCPSocket::TCPSocket(uv_loop_t* loop)
     uv_tcp_init(loop, this);
 }
 
+TCPSocket::~TCPSocket()
+{
+    if (!uv_is_closing(handle_cast<uv_handle_t>(this)))
+        std::terminate();
+}
+
 net::Address
 TCPSocket::get_peer_name() const
 {
@@ -65,6 +71,7 @@ TCPSocket::connect(const net::Address& address)
 void
 TCPSocket::listen(const net::Address& address)
 {
+    Error::check(uv_tcp_bind(this, address.get(), 0));
     Error::check(uv_listen(handle_cast<uv_stream_t>(this), 0, [](uv_stream_t* server, int status) {
         TCPSocket *self = handle_downcast(server);
         if (status >= 0) {

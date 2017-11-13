@@ -33,6 +33,8 @@ namespace libhdht
 namespace protocol
 {
 
+static const int DEFAULT_PORT = 7777;
+
 enum class Opcode : uint16_t
 {
     Hello

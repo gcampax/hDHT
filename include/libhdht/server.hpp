@@ -41,6 +41,7 @@ private:
     rpc::Context m_rpc;
     Table m_table;
     std::vector<ServerNode*> m_server_nodes;
+    std::vector<net::Address> m_peers;
 
 public:
     ServerContext(uv::Loop& loop) : m_rpc(loop) {}
@@ -48,6 +49,13 @@ public:
 
     // expose this server on this address
     void add_address(const net::Address& address);
+
+    // add the given peer as known in the table
+    void add_peer(const net::Address& address);
+
+    // register this server in the DHT
+    // (must have at least one peer in the table)
+    void start();
 };
 
 }

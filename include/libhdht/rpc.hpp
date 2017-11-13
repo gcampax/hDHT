@@ -175,7 +175,7 @@ class Context
 
 private:
     uv::Loop& m_loop;
-    std::vector<std::shared_ptr<uv::TCPSocket>> m_listening_sockets;
+    std::vector<std::unique_ptr<uv::TCPSocket>> m_listening_sockets;
     std::unordered_map<net::Address, std::weak_ptr<Peer>> m_known_peers;
     std::vector<std::function<void(std::shared_ptr<Peer>)>> m_stub_factories;
 

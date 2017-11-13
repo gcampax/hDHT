@@ -29,4 +29,16 @@ ServerContext::add_address(const net::Address& address)
     m_rpc.add_address(address);
 }
 
+void
+ServerContext::add_peer(const net::Address& address)
+{
+    m_peers.push_back(address);
+}
+
+void
+ServerContext::start()
+{
+    // register ourselves with the peers we know about
+}
+
 }
