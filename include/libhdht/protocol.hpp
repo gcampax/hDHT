@@ -37,23 +37,6 @@ namespace protocol
 static const int DEFAULT_PORT = 7777;
 static const int MASTER_OBJECT_ID = 1;
 
-struct MessageHeader
-{
-    uint16_t opcode;
-    uint64_t request_id;
-} __attribute__((packed));
-
-struct BaseRequest
-{
-    MessageHeader header;
-    uint64_t object_id;
-} __attribute__((packed));
-
-struct BaseResponse {
-    MessageHeader header;
-    uint32_t error;
-};
-
 // Step 1: forward declare all classes
 
 #define begin_class(name) \
@@ -81,60 +64,6 @@ invalid
 #undef end_class
 #undef begin_class
 
-namespace impl {
-
-template<typename Arg, typename Enable = void>
-struct convert_proxy_to_stub
-{
-    typedef Arg type;
-};
-
-template<typename Arg>
-struct convert_proxy_to_stub<std::shared_ptr<Arg>, typename std::enable_if<std::is_base_of<rpc::Proxy, Arg>::value>::type>
-{
-    typedef std::shared_ptr<typename Arg::stub_type> type;
-};
-
-template<Opcode opcode, typename Return, typename... Args>
-struct proxy_invoker {
-    void operator()(std::shared_ptr<rpc::Peer> peer, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*, Return)>& callback) const {
-        // do something
-    }
-};
-
-// specialization for calls that return void
-template<Opcode opcode, typename... Args>
-struct proxy_invoker<opcode, void, Args...>  {
-    void operator()(std::shared_ptr<rpc::Peer> peer, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*)>& callback) const {
-        // do something
-    }
-};
-
-template<Opcode opcode, typename Return>
-struct reply_invoker {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, const Return& args) const {
-        // do something
-    }
-};
-
-// specialization for calls that return void
-template<Opcode opcode>
-struct reply_invoker<opcode, void> {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id) const {
-        // do something
-    }
-};
-
-// specialization for calls that return a tuple
-template<Opcode opcode, typename... Args>
-struct reply_invoker<opcode, std::tuple<Args...>> {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, Args&&... args) const {
-        // do something
-    }
-};
-
-}
-
 // Step 3: declare proxies
 
 #define begin_class(name) class name##Proxy : public rpc::Proxy {\
@@ -145,8 +74,8 @@ public:\
 #define end_class };
 #define request(return_type, opcode, ...) \
     template<typename Callback, typename... Args> void invoke_##opcode(Callback&& callback, Args&&... args) { \
-        impl::proxy_invoker<Opcode::opcode, return_type, __VA_ARGS__> invoker;\
-        invoker(get_peer(), std::forward<Args>(args)..., std::forward<Callback>(callback));\
+        rpc::impl::proxy_invoker<return_type, __VA_ARGS__> invoker;\
+        invoker(get_peer(), (uint16_t)Opcode::opcode, get_object_id(), std::forward<Args>(args)..., std::forward<Callback>(callback));\
     }
 #include "protocol.inc.hpp"
 #undef request
@@ -167,8 +96,13 @@ protected:\
     virtual void handle_##opcode(uint64_t request_id, __VA_ARGS__) = 0; \
     template<typename... Args> \
     void reply_##opcode(uint64_t request_id, Args&&... args) {\
-        impl::reply_invoker<Opcode::opcode, return_type> invoker; \
-        invoker(get_peer(), request_id, std::forward<Args>(args)...); \
+        std::shared_ptr<rpc::Peer> peer = get_peer();\
+        if (!peer) {\
+            log(LOG_ERR, "Reply to request " #opcode " dropped (peer was garbage collected)");\
+            return;\
+        }\
+        rpc::impl::reply_invoker<return_type> invoker; \
+        invoker(peer, (uint16_t)Opcode::opcode, request_id, std::forward<Args>(args)...); \
     }
 #include "protocol.inc.hpp"
 #undef request

@@ -97,19 +97,28 @@ private:
     bool owns_memory;
 
 public:
-    Buffer(const uint8_t* buffer, size_t length, bool own_memory = false) {
+    Buffer(const uint8_t* buffer, size_t length, bool own_memory = false)
+    {
         base = (char*)buffer;
         len = length;
         owns_memory = own_memory;
     }
     Buffer(const Buffer& buffer) = delete;
-    Buffer(Buffer&& other) {
+    Buffer(Buffer&& other)
+    {
         base = other.base;
         len = other.len;
         owns_memory = other.owns_memory;
         other.owns_memory = false;
     }
-    ~Buffer() {
+    Buffer()
+    {
+        base = nullptr;
+        len = 0;
+        owns_memory = false;
+    }
+    ~Buffer()
+    {
         if (owns_memory)
             free(base);
     }

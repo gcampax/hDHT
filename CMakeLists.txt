@@ -51,6 +51,7 @@ add_library(hdht SHARED
 	lib/dht.cpp
 	lib/libhdht.cpp
 	lib/geo.cpp
+	lib/marshal.cpp
 	lib/net.cpp
 	lib/node.cpp
 	lib/protocol.cpp

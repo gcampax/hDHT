@@ -22,8 +22,16 @@
 // this file is included multiple times, defining different values
 // for the macros, to put the protocol definition in various places
 
-// Note: you cannot have requests with no parameters (due to how the
+// Note 1: all methods must have distinct names, because the names end up
+// in a single Opcode enum
+
+// Note 2: you cannot have requests with no parameters (due to how the
 // preprocessors expands __VA_ARGS__ macros, it would create a dangling comma)
+// pass a dummy integer if you really don't want any parameters
+
+// Note 3: to pass around RPC objects, you must declare a std::shared_ptr<> of the proxy type
+// This is automatically converted to the stub type in the declaration of the proxy
+// containing that request
 
 begin_class(Master)
     // server_hello: a server contacts another server to bootstrap the protocol

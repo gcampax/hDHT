@@ -37,6 +37,29 @@ namespace libhdht
 namespace rpc
 {
 
+// RPC-level protocol, as opposed to libhdht protocol
+namespace protocol
+{
+
+struct MessageHeader
+{
+    uint16_t opcode;
+    uint64_t request_id;
+} __attribute__((packed));
+
+struct BaseRequest
+{
+    MessageHeader header;
+    uint64_t object_id;
+} __attribute__((packed));
+
+struct BaseResponse {
+    MessageHeader header;
+    uint32_t error;
+};
+
+}
+
 class Error : public std::runtime_error
 {
 protected:
@@ -78,7 +101,6 @@ private:
 
     struct OutstandingRequest {
         uv::Buffer request_buffer;
-        size_t reply_length;
         std::function<void(Error*, const uv::Buffer*)> callback;
     };
 
@@ -100,12 +122,6 @@ private:
 
     void adopt_connection(Connection*);
     void drop_connection(Connection*);
-
-    void invoke_request(int16_t opcode,
-                        uint64_t object_id,
-                        uv::Buffer&& request,
-                        size_t reply_length,
-                        std::function<void(Error*, const uv::Buffer*)>);
 
 public:
     Peer(Context *ctx, const net::Address& address) : m_context(ctx), m_address(address) {}
@@ -158,6 +174,17 @@ public:
         return stub;
     }
 
+    void invoke_request(uint16_t opcode,
+                        uint64_t object_id,
+                        uv::Buffer&& request,
+                        const std::function<void(Error*, const uv::Buffer*)>&);
+    void send_error(uint16_t opcode,
+                    uint64_t request_id,
+                    rpc::RemoteError error);
+    void send_reply(uint16_t opcode,
+                    uint64_t request_id,
+                    uv::Buffer&& reply);
+
     /*template<typename Request, typename Callback>
     void invoke_request(uint64_t object_id,
                         const typename Request::request_type& req,
@@ -204,13 +231,6 @@ public:
     // only need this for RTTI (which is used to check the types
     // of arguments on the wire)
     virtual ~Proxy() {}
-
-    /*template<typename Request, typename Callback>
-    void invoke_request(const typename Request::request_type& req,
-                        Callback&& callback)
-    {
-        m_peer->invoke_request(m_object_id, req, std::forward<Callback>(callback));
-    }*/
 };
 
 class Stub : public std::enable_shared_from_this<Stub>
@@ -224,9 +244,14 @@ protected:
     {
         return m_peer.lock();
     }
-    void reply_error(uint64_t request_id, rpc::RemoteError error)
+    void reply_error(uint16_t opcode, uint64_t request_id, rpc::RemoteError error)
     {
-        // do something
+        std::shared_ptr<Peer> peer = get_peer();
+        if (!peer) {
+            log(LOG_ERR, "Error reply dropped (peer was garbage collected)");
+            return;
+        }
+        peer->send_error(opcode, request_id, error);
     }
 
 public:

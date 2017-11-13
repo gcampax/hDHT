@@ -24,7 +24,8 @@ namespace libhdht {
 
 namespace protocol {
 
-namespace impl {
+namespace impl
+{
 
 template<typename... Args>
 struct pack_size {
@@ -65,18 +66,6 @@ static const size_t reply_size_table[] = {
 #undef begin_class
 };
 
-size_t
-get_request_size(Opcode opcode)
-{
-    return request_size_table[(uint16_t)opcode];
-}
-
-size_t
-get_reply_size(Opcode opcode)
-{
-    return reply_size_table[(uint16_t)opcode];
-}
-
 template <typename Type, typename Callback, class Tuple, std::size_t... I>
 void dispatch_helper2(Type* object, Callback callback, uint64_t request_id, Tuple&& args, std::index_sequence<I...>)
 {
@@ -97,6 +86,18 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
 
 }
 
+size_t
+get_request_size(Opcode opcode)
+{
+    return impl::request_size_table[(uint16_t)opcode];
+}
+
+size_t
+get_reply_size(Opcode opcode)
+{
+    return impl::reply_size_table[(uint16_t)opcode];
+}
+
 #define begin_class(name) \
     void \
     name##Stub::dispatch_request(int16_t opcode, uint64_t request_id, const uv::Buffer& buffer) {\
@@ -105,7 +106,7 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
             log(LOG_ERR, "Peer disappeared before request could be handled\n");\
             return;\
         }\
-        BufferReader reader(buffer);\
+        rpc::BufferReader reader(buffer);\
         switch(opcode) {
 #define end_class \
         default:\
@@ -116,9 +117,9 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
 #define request(return_type, opcode, ...) \
     case (uint16_t)(Opcode::opcode): \
         try {\
-            impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));\
+            impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, rpc::impl::pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));\
         } catch(rpc::RemoteError e) { \
-            reply_error(request_id, e);\
+            reply_error((uint16_t)(Opcode::opcode), request_id, e);\
         }
 #include <libhdht/protocol.inc.hpp>
 #undef request

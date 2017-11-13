@@ -27,8 +27,12 @@
 #include <type_traits>
 
 #include "uv.hpp"
+#include "rpc.hpp"
 
 namespace libhdht
+{
+
+namespace rpc
 {
 
 class BufferWriter
@@ -37,7 +41,7 @@ private:
     uint8_t* m_storage;
     size_t m_length;
     size_t m_capacity;
-    bool m_closed = false;
+    bool m_closed;
 
 public:
     BufferWriter();
@@ -75,6 +79,9 @@ public:
         return T();
     }
 };
+
+namespace impl
+{
 
 template<typename... Args>
 struct pack_marshaller {
@@ -152,6 +159,28 @@ struct single_marshaller<NodeID>
     }
 };
 
+template<typename... Args>
+struct single_marshaller<std::tuple<Args...>>
+{
+private:
+    template<size_t... I>
+    static void helper(BufferWriter& writer, const std::tuple<Args...>& obj, std::index_sequence<I...>)
+    {
+        pack_marshaller<Args...>::to_buffer(writer, std::get<I>(obj)...);
+    }
+
+public:
+    static void to_buffer(BufferWriter& writer, const std::tuple<Args...>& obj)
+    {
+        helper(writer, obj, std::index_sequence_for<Args...>());
+    }
+
+    static std::tuple<Args...> from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        return std::tuple<Args...>(single_marshaller<Args>::from_buffer(peer, reader)...);
+    }
+};
+
 // Note: for objects, the "IDL" always uses the Proxy type, but for outgoing requests we expect
 // the stub type
 //
@@ -162,17 +191,21 @@ struct single_marshaller<NodeID>
 template<typename Type>
 struct single_marshaller<std::shared_ptr<Type>, typename std::enable_if<std::is_base_of<rpc::Proxy, Type>::value>::type>
 {
-    static void to_buffer(BufferWriter& writer, const std::shared_ptr<typename Type::stub_type>& obj)
-    {
-        writer.write(obj ? obj->get_object_id() : 0);
-    }
-
     static std::shared_ptr<Type> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
         uint64_t object_id = reader.read<uint64_t>();
         if (object_id == 0)
             return nullptr;
         return peer.get_proxy<Type>(object_id);
+    }
+};
+
+template<typename Type>
+struct single_marshaller<std::shared_ptr<Type>, typename std::enable_if<std::is_base_of<rpc::Stub, Type>::value>::type>
+{
+    static void to_buffer(BufferWriter& writer, const std::shared_ptr<Type>& obj)
+    {
+        writer.write(obj ? obj->get_object_id() : 0);
     }
 };
 
@@ -188,5 +221,81 @@ struct pack_marshaller<Type> {
         return single_marshaller<Type>::from_buffer(peer, reader);
     }
 };
+
+template<typename Arg, typename Enable = void>
+struct convert_proxy_to_stub
+{
+    typedef Arg type;
+};
+
+template<typename Arg>
+struct convert_proxy_to_stub<std::shared_ptr<Arg>, typename std::enable_if<std::is_base_of<rpc::Proxy, Arg>::value>::type>
+{
+    typedef std::shared_ptr<typename Arg::stub_type> type;
+};
+
+template<typename Return, typename... Args>
+struct proxy_invoker {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t object_id, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*, Return)>& callback) const {
+        BufferWriter writer;
+        pack_marshaller<typename convert_proxy_to_stub<Args>::type...>::to_buffer(writer, args...);
+        peer->invoke_request(opcode, object_id, writer.close(), [peer, callback](rpc::Error* error, const uv::Buffer* buffer) {
+            if (error) {
+                callback(error, Return());
+            } else {
+                BufferReader reader(*buffer);
+                callback(nullptr, single_marshaller<Return>::from_buffer(*peer, reader));
+            }
+        });
+    }
+};
+
+// specialization for calls that return void
+template<typename... Args>
+struct proxy_invoker<void, Args...>  {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t object_id, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*)>& callback) const {
+        BufferWriter writer;
+        pack_marshaller<typename convert_proxy_to_stub<Args>::type...>::to_buffer(writer, args...);
+        peer->invoke_request(opcode, object_id, writer.close(), [peer, callback](rpc::Error* error, const uv::Buffer* buffer) {
+            if (error) {
+                callback(error);
+            } else {
+                callback(nullptr);
+            }
+        });
+    }
+};
+
+template<typename Return>
+struct reply_invoker {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id, const Return& args) const {
+        BufferWriter writer;
+        single_marshaller<Return>::to_buffer(writer, args);
+        peer->send_reply(opcode, request_id, writer.close());
+    }
+};
+
+// specialization for calls that return void
+template<>
+struct reply_invoker<void> {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id) const {
+        uv::Buffer buffer;
+        peer->send_reply(opcode, request_id, std::move(buffer));
+    }
+};
+
+// specialization for calls that return a tuple
+template<typename... Args>
+struct reply_invoker<std::tuple<Args...>> {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id, const Args&... args) const {
+        BufferWriter writer;
+        pack_marshaller<Args...>::to_buffer(writer, args...);
+        peer->send_reply(opcode, request_id, writer.close());
+    }
+};
+
+}
+
+}
 
 }

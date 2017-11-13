@@ -55,9 +55,7 @@ public:
 
     void invoke_request(int16_t opcode,
                         uint64_t object_id,
-                        const uint8_t* request,
-                        size_t request_length,
-                        size_t reply_length,
+                        const uv::Buffer& buffer,
                         void (*)(int error, const uv::Buffer& reply));
 
     virtual void closed() override
@@ -109,6 +107,30 @@ Peer::drop_connection(Connection* connection)
             return;
         }
     }
+}
+
+void
+Peer::invoke_request(uint16_t opcode,
+                     uint64_t object_id,
+                     uv::Buffer&& request,
+                     const std::function<void(Error*, const uv::Buffer*)>&)
+{
+    // TODO do something with this
+}
+
+void
+Peer::send_error(uint16_t opcode,
+                 uint64_t request_id,
+                 rpc::RemoteError error)
+{
+    // TODO do something with this
+}
+
+void
+Peer::send_reply(uint16_t opcode,
+                 uint64_t request_id,
+                 uv::Buffer&& reply)
+{
 }
 
 class Server : public uv::TCPSocket
