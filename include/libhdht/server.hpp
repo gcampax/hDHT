@@ -44,7 +44,7 @@ private:
     std::vector<net::Address> m_peers;
 
 public:
-    ServerContext(uv::Loop& loop) : m_rpc(loop) {}
+    ServerContext(uv::Loop& loop);
     ~ServerContext() {}
 
     // expose this server on this address

@@ -24,6 +24,7 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+#include <cassert>
 
 #include "net.hpp"
 #include "uv.hpp"
@@ -109,6 +110,11 @@ private:
 public:
     Peer(Context *ctx, const net::Address& address) : m_context(ctx), m_address(address) {}
 
+    const net::Address& get_address() const
+    {
+        return m_address;
+    }
+
     std::shared_ptr<Stub> get_stub(uint64_t object);
 
     template<typename T>
@@ -130,8 +136,18 @@ public:
     std::shared_ptr<T> create_stub(Args&&... args)
     {
         uint64_t stub_id = m_next_stub_id ++;
-        std::shared_ptr<T> stub = std::make_shared(stub_id, std::forward<Args>(args)...);
+        std::shared_ptr<T> stub = std::make_shared<T>(shared_from_this(), stub_id, std::forward<Args>(args)...);
         m_stubs.insert(std::make_pair(stub_id, stub));
+        return stub;
+    }
+
+    template<typename T, typename... Args>
+    std::shared_ptr<T> create_named_stub(uint64_t object_id, Args&&... args)
+    {
+        m_next_stub_id = std::max(m_next_stub_id, object_id+1);
+        std::shared_ptr<T> stub = std::make_shared<T>(shared_from_this(), object_id, std::forward<Args>(args)...);
+        auto result = m_stubs.insert(std::make_pair(object_id, stub));
+        assert(result.second);
         return stub;
     }
 
@@ -164,6 +180,12 @@ private:
     std::shared_ptr<Peer> m_peer;
     uint64_t m_object_id;
 
+protected:
+    std::shared_ptr<Peer> get_peer()
+    {
+        return m_peer;
+    }
+
 public:
     Proxy(std::shared_ptr<Peer> peer, uint64_t object_id) : m_peer(peer), m_object_id(object_id) {}
 
@@ -194,6 +216,10 @@ protected:
     std::shared_ptr<Peer> get_peer()
     {
         return m_peer.lock();
+    }
+    void reply_error(uint64_t request_id, rpc::RemoteError error)
+    {
+        // do something
     }
 
 public:

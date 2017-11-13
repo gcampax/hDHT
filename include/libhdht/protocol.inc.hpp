@@ -26,9 +26,18 @@
 // preprocessors expands __VA_ARGS__ macros, it would create a dangling comma)
 
 begin_class(Master)
-    request(void, register_server, NodeID, std::shared_ptr<ServerProxy>)
-    request(void, register_client, double, double)
+    // server_hello: a server contacts another server to bootstrap the protocol
+    request(void, server_hello, std::shared_ptr<MasterProxy>)
+
+    // register_server_node: a virtual server node joins the DHT
+    request(void, register_server_node, NodeID, std::shared_ptr<ServerNodeProxy>)
+
+    // register_client_node: a client node joins the DHT
+    request(void, register_client_node, double, double, std::shared_ptr<ClientNodeProxy>)
 end_class
 
-begin_class(Server)
+begin_class(ServerNode)
+end_class
+
+begin_class(ClientNode)
 end_class

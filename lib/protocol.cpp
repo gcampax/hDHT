@@ -115,7 +115,11 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
     } /* close method */
 #define request(return_type, opcode, ...) \
     case (uint16_t)(Opcode::opcode): \
-        impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));
+        try {\
+            impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));\
+        } catch(rpc::RemoteError e) { \
+            reply_error(request_id, e);\
+        }
 #include <libhdht/protocol.inc.hpp>
 #undef request
 #undef end_class

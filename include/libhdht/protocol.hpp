@@ -34,6 +34,7 @@ namespace protocol
 {
 
 static const int DEFAULT_PORT = 7777;
+static const int MASTER_OBJECT_ID = 1;
 
 struct MessageHeader
 {
@@ -108,7 +109,7 @@ struct proxy_invoker<opcode, void, Args...>  {
 
 template<Opcode opcode, typename Return>
 struct reply_invoker {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error, Return&& args) const {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, Return&& args) const {
         // do something
     }
 };
@@ -116,7 +117,7 @@ struct reply_invoker {
 // specialization for calls that return void
 template<Opcode opcode>
 struct reply_invoker<opcode, void> {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error) const {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id) const {
         // do something
     }
 };
@@ -124,7 +125,7 @@ struct reply_invoker<opcode, void> {
 // specialization for calls that return a tuple
 template<Opcode opcode, typename... Args>
 struct reply_invoker<opcode, std::tuple<Args...>> {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error, Args&&... args) const {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, Args&&... args) const {
         // do something
     }
 };
@@ -142,7 +143,7 @@ public:\
 #define request(return_type, opcode, ...) \
     template<typename... Args, typename Callback> void invoke_##opcode(Args&&... args, Callback callback) { \
         impl::proxy_invoker<Opcode::opcode, return_type, __VA_ARGS__> invoker;\
-        invoker(m_peer, std::forward<Args>(args)..., std::forward<Callback>(callback));\
+        invoker(get_peer(), std::forward<Args>(args)..., std::forward<Callback>(callback));\
     }
 #include "protocol.inc.hpp"
 #undef request
@@ -155,14 +156,16 @@ public:\
 public:\
     typedef name##Proxy proxy_type; \
     typedef name##Stub stub_type; \
+    name##Stub(std::shared_ptr<rpc::Peer> peer, uint64_t object_id) : rpc::Stub(peer, object_id) {}\
+protected:\
     virtual void dispatch_request(int16_t opcode, uint64_t request_id, const uv::Buffer& buffer) override;
 #define end_class };
 #define request(return_type, opcode, ...) \
     virtual void handle_##opcode(uint64_t request_id, __VA_ARGS__) = 0; \
     template<typename... Args> \
-    void reply_##opcode(uint64_t request_id, rpc::RemoteError error, Args&&... args) {\
+    void reply_##opcode(uint64_t request_id, Args&&... args) {\
         impl::reply_invoker<Opcode::opcode, return_type> invoker; \
-        invoker(m_peer, request_id, error, std::forward<Args>(args)...); \
+        invoker(get_peer(), request_id, std::forward<Args>(args)...); \
     }
 #include "protocol.inc.hpp"
 #undef request
