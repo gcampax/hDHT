@@ -22,8 +22,8 @@
 
 #include <memory>
 
-#include "rtree/hilbert-value.hpp"
-#include "rtree/rectangle.hpp"
+#include "libhdht/rtree/hilbert-value.hpp"
+#include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
 
@@ -32,8 +32,8 @@ namespace libhdht {
 class NodeEntry {
   public:
     virtual ~NodeEntry();
-    virtual std::shared_ptr<HilbertValue> getMBR()=0;
-    virtual std::shared_ptr<Rectangle> getLHV()=0;
+    virtual std::shared_ptr<Rectangle> getMBR()=0;
+    virtual std::shared_ptr<HilbertValue> getLHV()=0;
     virtual bool isLeafEntry()=0;
 };
 

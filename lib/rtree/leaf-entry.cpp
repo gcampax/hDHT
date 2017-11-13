@@ -18,22 +18,35 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
+#include "libhdht/rtree/leaf-entry.hpp"
 
-#include "libhdht/rtree/node.hpp"
+#include <memory>
+
+#include "libhdht/rtree/hilbert-value.hpp"
+#include "libhdht/rtree/node-entry.hpp"
 #include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
 
-class RTree {
-  public:
-    RTree();
-    ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
-    
-  private:
-    Node* root_;
-};
+LeafEntry::LeafEntry(std::shared_ptr<Rectangle> mbr,
+                     std::shared_ptr<Rectangle> lhv) {
+
+}
+
+LeafEntry::~LeafEntry() {
+
+}
+
+std::shared_ptr<Rectangle> LeafEntry::getMBR() {
+    return mbr_;
+}
+
+std::shared_ptr<HilbertValue> LeafEntry::getLHV() {
+    return lhv_;
+}
+
+bool LeafEntry::isLeafEntry() {
+    return true;
+}
 
 } // namespace libhdht

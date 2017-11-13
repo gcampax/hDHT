@@ -22,10 +22,10 @@
 
 #include <memory>
 
-#include "rtree/hilbert-value.hpp"
-#include "rtree/node-entry.hpp"
-#include "rtree/node.hpp"
-#include "rtree/rectangle.hpp"
+#include "libhdht/rtree/hilbert-value.hpp"
+#include "libhdht/rtree/node-entry.hpp"
+#include "libhdht/rtree/node.hpp"
+#include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
 
@@ -39,7 +39,7 @@ class InternalEntry : public NodeEntry {
     Node* getNode();
     bool isLeafEntry();
   private:
-    Node* node;
+    Node* node_;
 };
 
 } // namespace libhdht

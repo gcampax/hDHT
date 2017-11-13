@@ -29,7 +29,7 @@ class Rectangle {
   public:
     Rectangle(std::vector<int> upper, std::vector<int> lower);
     ~Rectangle();
-    std::vector<int< getCenter();
+    std::vector<int> getCenter();
     const std::vector<int> getLower() const;
     const std::vector<int> getUpper() const;
     bool intersects(const Rectangle& other);

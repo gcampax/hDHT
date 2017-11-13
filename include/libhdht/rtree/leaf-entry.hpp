@@ -22,9 +22,9 @@
 
 #include <memory>
 
-#include "rtree/hilbert-value.hpp"
-#include "rtree/node-entry.hpp"
-#include "rtree/rectangle.hpp"
+#include "libhdht/rtree/hilbert-value.hpp"
+#include "libhdht/rtree/node-entry.hpp"
+#include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
 
@@ -34,13 +34,11 @@ class LeafEntry : public NodeEntry {
     LeafEntry(std::shared_ptr<Rectangle> mbr, std::shared_ptr<Rectangle> lhv);
     ~LeafEntry();
     std::shared_ptr<Rectangle> getMBR();
-    std::shared_ptr<Rectangle> getLHV();
+    std::shared_ptr<HilbertValue> getLHV();
     bool isLeafEntry();
   private:
     std::shared_ptr<Rectangle> mbr_;
-    std::shared_ptr<Rectangle> lhv_;
+    std::shared_ptr<HilbertValue> lhv_;
 };
 
 } // namespace libhdht
-
-

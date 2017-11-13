@@ -18,22 +18,40 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
-
 #include "libhdht/rtree/node.hpp"
+
+#include <memory>
+
 #include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
 
-class RTree {
-  public:
-    RTree();
-    ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
-    
-  private:
-    Node* root_;
-};
+Node::Node(int m, int M) : m_(m), M_(m) {
+
+}
+
+Node::~Node() {
+
+}
+
+bool Node::isLeaf() const {
+    return leaf_;
+}
+
+std::shared_ptr<Rectangle> Node::getMBR() {
+    return mbr_;
+}
+
+std::shared_ptr<HilbertValue> Node::getLHV() {
+    return lhv_;
+}
+
+void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
+
+}
+
+void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
+
+}
 
 } // namespace libhdht

@@ -20,11 +20,13 @@
 
 #pragma once
 
-#include "rtree/hilbert-value.hpp"
-#include "rtree/node-entry.hpp"
-#include "rtree/rectangle.hpp"
+#include "libhdht/rtree/hilbert-value.hpp"
+#include "libhdht/rtree/node-entry.hpp"
+#include "libhdht/rtree/rectangle.hpp"
 
 #include <memory>
+
+namespace libhdht {
 
 // An RTree node
 class Node {
@@ -35,13 +37,15 @@ class Node {
     std::shared_ptr<Rectangle> getMBR();
     std::shared_ptr<HilbertValue> getLHV();
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
-    void insertInternalEntry(std:shared_ptr<NodeEntry> entry);
+    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
 
   private:
     int m_;
     int M_;
-    std::shared_ptr<HilbertValue> mbr_;
+    std::shared_ptr<Rectangle> mbr_;
     std::shared_ptr<HilbertValue> lhv_;
     bool leaf_;
     std::vector<NodeEntry> entries_;
 };
+
+} // namespace libhdht

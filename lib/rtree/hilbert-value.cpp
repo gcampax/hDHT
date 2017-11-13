@@ -18,22 +18,15 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
-
-#include "libhdht/rtree/node.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include "libhdht/rtree/hilbert-value.hpp"
 
 namespace libhdht {
 
-class RTree {
-  public:
-    RTree();
-    ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
-    
-  private:
-    Node* root_;
-};
+HilbertValue::HilbertValue() {
+
+}
 
 } // namespace libhdht
+
+
+

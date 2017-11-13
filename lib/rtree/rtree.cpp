@@ -18,22 +18,24 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
-
-#include "libhdht/rtree/node.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include "libhdht/rtree/rtree.hpp"
 
 namespace libhdht {
 
-class RTree {
-  public:
-    RTree();
-    ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
-    
-  private:
-    Node* root_;
-};
+RTree::RTree() {
+
+}
+
+RTree::~RTree() {
+
+}
+
+void RTree::Insert(const Rectangle& r) {
+
+}
+
+void RTree::Search(const Rectangle& query) {
+
+} 
 
 } // namespace libhdht

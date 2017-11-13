@@ -18,22 +18,42 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#pragma once
-
-#include "libhdht/rtree/node.hpp"
 #include "libhdht/rtree/rectangle.hpp"
+
+#include <vector>
 
 namespace libhdht {
 
-class RTree {
-  public:
-    RTree();
-    ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
+Rectangle::Rectangle(std::vector<int> upper, std::vector<int> lower)
+    : upper_(upper), lower_(lower) {
+
+}
+
+Rectangle::~Rectangle() {
+
+}
+
+std::vector<int> Rectangle::getCenter() {
+    std::vector<int> center;
+    return center;
+}
     
-  private:
-    Node* root_;
-};
+const std::vector<int> Rectangle::getLower() const {
+    return lower_;
+}
+
+const std::vector<int> Rectangle::getUpper() const {
+    return upper_;
+}
+ 
+bool Rectangle::intersects(const Rectangle& other) {
+    return false;
+}
+
+bool Rectangle::contains(const Rectangle& other) {
+    return false;
+}
 
 } // namespace libhdht
+
+
