@@ -93,21 +93,6 @@ public:
     }
 };
 
-std::shared_ptr<Proxy>
-Peer::get_proxy(uint64_t object)
-{
-    auto it = m_proxies.find(object);
-    if (it != m_proxies.end()) {
-        std::shared_ptr<Proxy> ptr = it->second.lock();
-        if (ptr)
-            return ptr;
-    }
-
-    std::shared_ptr<Proxy> ptr = std::make_shared<Proxy>(shared_from_this(), object);
-    m_proxies.insert(std::make_pair(object, ptr));
-    return ptr;
-}
-
 void
 Peer::adopt_connection(Connection* connection)
 {
@@ -186,6 +171,10 @@ Context::new_connection(Connection* connection)
         log(LOG_WARNING, "Failed to handle new connection: %s", e.what());
     }
 }
+
+// empty destructor, just to fill in the vtable slot
+Stub::~Stub()
+{}
 
 }
 

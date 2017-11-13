@@ -53,6 +53,7 @@ add_library(hdht SHARED
 	lib/geo.cpp
 	lib/net.cpp
 	lib/node.cpp
+	lib/protocol.cpp
 	lib/rpc.cpp
 	lib/server.cpp
 	lib/uv.cpp

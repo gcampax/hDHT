@@ -25,7 +25,7 @@
 #include <memory>
 #include <vector>
 
-#include "uv.h"
+#include "marshal.hpp"
 
 namespace libhdht
 {
@@ -34,11 +34,6 @@ namespace protocol
 {
 
 static const int DEFAULT_PORT = 7777;
-
-enum class Opcode : uint16_t
-{
-    Hello
-};
 
 struct MessageHeader
 {
@@ -57,6 +52,123 @@ struct BaseResponse {
     uint32_t error;
 };
 
+// Step 1: forward declare all classes
+
+#define begin_class(name) \
+    class name##Proxy; \
+    class name##Stub;
+#define end_class
+#define request(return_type, opcode, ...)
+#include "protocol.inc.hpp"
+#undef request
+#undef end_class
+#undef begin_class
+
+// Step 2: declare opcodes
+
+#define begin_class(name)
+#define end_class
+#define request(return_type, opcode, ...) ,opcode
+enum class Opcode : uint16_t
+{
+invalid
+#include "protocol.inc.hpp"
+,max_opcode
+};
+#undef request
+#undef end_class
+#undef begin_class
+
+namespace impl {
+
+template<Opcode opcode, typename Return, typename... Args>
+struct proxy_invoker {
+    void operator()(rpc::Peer *peer, Args&&... args, const std::function<void(uv::Error, Return)>& callback) const {
+        // do something
+    }
+
+    template<typename Callback>
+    void operator()(rpc::Peer *peer, Args&&... args, Callback callback) const {
+        (*this)(peer, std::forward<Args>(args)..., std::function<void(uv::Error, Return)>(std::forward<Callback>(callback)));
+    }
+};
+
+// specialization for calls that return void
+template<Opcode opcode, typename... Args>
+struct proxy_invoker<opcode, void, Args...>  {
+    void operator()(rpc::Peer *peer, Args&&... args, const std::function<void(uv::Error)>& callback) const {
+        // do something
+    }
+
+    template<typename Callback>
+    void operator()(rpc::Peer *peer, Args&&... args, Callback callback) const {
+        (*this)(peer, std::forward<Args>(args)..., std::function<void(uv::Error)>(std::forward<Callback>(callback)));
+    }
+};
+
+template<Opcode opcode, typename Return>
+struct reply_invoker {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error, Return&& args) const {
+        // do something
+    }
+};
+
+// specialization for calls that return void
+template<Opcode opcode>
+struct reply_invoker<opcode, void> {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error) const {
+        // do something
+    }
+};
+
+// specialization for calls that return a tuple
+template<Opcode opcode, typename... Args>
+struct reply_invoker<opcode, std::tuple<Args...>> {
+    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, rpc::RemoteError error, Args&&... args) const {
+        // do something
+    }
+};
+
+}
+
+// Step 3: declare proxies
+
+#define begin_class(name) class name##Proxy : public rpc::Proxy {\
+public:\
+    typedef name##Proxy proxy_type; \
+    typedef name##Stub stub_type; \
+    name##Proxy(std::shared_ptr<rpc::Peer> peer, uint64_t object_id) : rpc::Proxy(peer, object_id) {}
+#define end_class };
+#define request(return_type, opcode, ...) \
+    template<typename... Args, typename Callback> void invoke_##opcode(Args&&... args, Callback callback) { \
+        impl::proxy_invoker<Opcode::opcode, return_type, __VA_ARGS__> invoker;\
+        invoker(m_peer, std::forward<Args>(args)..., std::forward<Callback>(callback));\
+    }
+#include "protocol.inc.hpp"
+#undef request
+#undef end_class
+#undef begin_class
+
+// Step 4: declare stubs
+
+#define begin_class(name) class name##Stub : public rpc::Stub {\
+public:\
+    typedef name##Proxy proxy_type; \
+    typedef name##Stub stub_type; \
+    virtual void dispatch_request(int16_t opcode, uint64_t request_id, const uv::Buffer& buffer) override;
+#define end_class };
+#define request(return_type, opcode, ...) \
+    virtual void handle_##opcode(uint64_t request_id, __VA_ARGS__) = 0; \
+    template<typename... Args> \
+    void reply_##opcode(uint64_t request_id, rpc::RemoteError error, Args&&... args) {\
+        impl::reply_invoker<Opcode::opcode, return_type> invoker; \
+        invoker(m_peer, request_id, error, std::forward<Args>(args)...); \
+    }
+#include "protocol.inc.hpp"
+#undef request
+#undef end_class
+#undef begin_class
+
 template<typename T>
 struct EmptyRequest {
     uv::Buffer marshal() {
@@ -67,11 +179,8 @@ struct EmptyRequest {
     }
 };
 
-struct Hello {
-    static const Opcode opcode = Opcode::Hello;
-    typedef struct HelloRequest : public EmptyRequest<HelloRequest> {} request_type;
-    typedef struct HelloResponse : public EmptyRequest<HelloResponse> {} response_type;
-};
+size_t get_request_size(Opcode opcode);
+size_t get_reply_size(Opcode opcode);
 
 }
 }

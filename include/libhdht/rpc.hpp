@@ -27,7 +27,6 @@
 
 #include "net.hpp"
 #include "uv.hpp"
-#include "protocol.hpp"
 
 // mini rpc library
 
@@ -110,10 +109,25 @@ private:
 public:
     Peer(Context *ctx, const net::Address& address) : m_context(ctx), m_address(address) {}
 
-    std::shared_ptr<Proxy> get_proxy(uint64_t object);
+    std::shared_ptr<Stub> get_stub(uint64_t object);
+
+    template<typename T>
+    std::shared_ptr<T> get_proxy(uint64_t object)
+    {
+        auto it = m_proxies.find(object);
+        if (it != m_proxies.end()) {
+            std::shared_ptr<Proxy> ptr = it->second.lock();
+            if (ptr)
+                return std::dynamic_pointer_cast<T>(ptr);
+        }
+
+        std::shared_ptr<T> ptr = std::make_shared<T>(shared_from_this(), object);
+        m_proxies.insert(std::make_pair(object, ptr));
+        return ptr;
+    }
 
     template<typename T, typename... Args>
-    std::shared_ptr<T> get_stub(Args&&... args)
+    std::shared_ptr<T> create_stub(Args&&... args)
     {
         uint64_t stub_id = m_next_stub_id ++;
         std::shared_ptr<T> stub = std::make_shared(stub_id, std::forward<Args>(args)...);
@@ -121,7 +135,7 @@ public:
         return stub;
     }
 
-    template<typename Request, typename Callback>
+    /*template<typename Request, typename Callback>
     void invoke_request(uint64_t object_id,
                         const typename Request::request_type& req,
                         Callback&& callback)
@@ -141,7 +155,7 @@ public:
         uv::Buffer buf(req.marshal());
         invoke_request(Request::opcode, object_id, std::move(buf),
             sizeof(typename Request::reply_type), callback_wrapper);
-    }
+    }*/
 };
 
 class Proxy : public std::enable_shared_from_this<Proxy>
@@ -153,20 +167,45 @@ private:
 public:
     Proxy(std::shared_ptr<Peer> peer, uint64_t object_id) : m_peer(peer), m_object_id(object_id) {}
 
-    template<typename Request, typename Callback>
+    uint64_t get_object_id() const
+    {
+        return m_object_id;
+    }
+
+    // only need this for RTTI (which is used to check the types
+    // of arguments on the wire)
+    virtual ~Proxy() {}
+
+    /*template<typename Request, typename Callback>
     void invoke_request(const typename Request::request_type& req,
                         Callback&& callback)
     {
         m_peer->invoke_request(m_object_id, req, std::forward<Callback>(callback));
-    }
+    }*/
 };
 
-class Stub
+class Stub : public std::enable_shared_from_this<Stub>
 {
+private:
+    std::weak_ptr<Peer> m_peer;
+    uint64_t m_object_id;
+
+protected:
+    std::shared_ptr<Peer> get_peer()
+    {
+        return m_peer.lock();
+    }
+
 public:
+    Stub(std::shared_ptr<Peer> peer, uint64_t object_id) : m_peer(peer), m_object_id(object_id) {}
     virtual ~Stub();
 
-    virtual void dispatch_request(int16_t opcode, const uv::Buffer& buffer) = 0;
+    uint64_t get_object_id() const
+    {
+        return m_object_id;
+    }
+
+    virtual void dispatch_request(int16_t opcode, uint64_t request_id, const uv::Buffer& buffer) = 0;
 };
 
 class Context

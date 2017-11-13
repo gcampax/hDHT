@@ -33,8 +33,11 @@ namespace libhdht {
 
 class NodeID
 {
+public:
+    static const size_t size = 20;
+
 private:
-    uint8_t m_parts[20];
+    uint8_t m_parts[size];
 public:
 
     NodeID();
@@ -50,6 +53,11 @@ public:
     bool operator<(const NodeID& o) const
     {
         return memcmp(m_parts, o.m_parts, sizeof(m_parts)) < 0;
+    }
+
+    const uint8_t* get_buffer() const
+    {
+        return m_parts;
     }
 };
 
