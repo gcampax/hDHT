@@ -115,7 +115,14 @@ public:
         return m_address;
     }
 
-    std::shared_ptr<Stub> get_stub(uint64_t object);
+    std::shared_ptr<Stub> get_stub(uint64_t object)
+    {
+        auto it = m_stubs.find(object);
+        if (it != m_stubs.end())
+            return it->second;
+        else
+            return nullptr;
+    }
 
     template<typename T>
     std::shared_ptr<T> get_proxy(uint64_t object)

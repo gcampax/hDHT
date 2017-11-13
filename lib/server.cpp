@@ -81,6 +81,19 @@ void
 ServerContext::start()
 {
     // register ourselves with the peers we know about
+    for (auto address : m_peers) {
+        auto peer = m_rpc.get_peer(address);
+
+        auto self = std::static_pointer_cast<MasterImpl>(peer->get_stub(protocol::MASTER_OBJECT_ID));
+        auto master = peer->get_proxy<protocol::MasterProxy>(protocol::MASTER_OBJECT_ID);
+        master->invoke_server_hello([peer](rpc::Error *error) {
+            if (error) {
+                log(LOG_WARNING, "Failed to register with %s: %s", peer->get_address().to_string().c_str(), error->what());
+            } else {
+                log(LOG_INFO, "Registered with %s successfully", peer->get_address().to_string().c_str());
+            }
+        }, self);
+    }
 }
 
 }

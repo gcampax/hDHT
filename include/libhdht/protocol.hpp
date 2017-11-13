@@ -24,6 +24,7 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+#include <type_traits>
 
 #include "marshal.hpp"
 
@@ -82,34 +83,36 @@ invalid
 
 namespace impl {
 
+template<typename Arg, typename Enable = void>
+struct convert_proxy_to_stub
+{
+    typedef Arg type;
+};
+
+template<typename Arg>
+struct convert_proxy_to_stub<std::shared_ptr<Arg>, typename std::enable_if<std::is_base_of<rpc::Proxy, Arg>::value>::type>
+{
+    typedef std::shared_ptr<typename Arg::stub_type> type;
+};
+
 template<Opcode opcode, typename Return, typename... Args>
 struct proxy_invoker {
-    void operator()(rpc::Peer *peer, Args&&... args, const std::function<void(uv::Error, Return)>& callback) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*, Return)>& callback) const {
         // do something
-    }
-
-    template<typename Callback>
-    void operator()(rpc::Peer *peer, Args&&... args, Callback callback) const {
-        (*this)(peer, std::forward<Args>(args)..., std::function<void(uv::Error, Return)>(std::forward<Callback>(callback)));
     }
 };
 
 // specialization for calls that return void
 template<Opcode opcode, typename... Args>
 struct proxy_invoker<opcode, void, Args...>  {
-    void operator()(rpc::Peer *peer, Args&&... args, const std::function<void(uv::Error)>& callback) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*)>& callback) const {
         // do something
-    }
-
-    template<typename Callback>
-    void operator()(rpc::Peer *peer, Args&&... args, Callback callback) const {
-        (*this)(peer, std::forward<Args>(args)..., std::function<void(uv::Error)>(std::forward<Callback>(callback)));
     }
 };
 
 template<Opcode opcode, typename Return>
 struct reply_invoker {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, Return&& args) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, const Return& args) const {
         // do something
     }
 };
@@ -117,7 +120,7 @@ struct reply_invoker {
 // specialization for calls that return void
 template<Opcode opcode>
 struct reply_invoker<opcode, void> {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id) const {
         // do something
     }
 };
@@ -125,7 +128,7 @@ struct reply_invoker<opcode, void> {
 // specialization for calls that return a tuple
 template<Opcode opcode, typename... Args>
 struct reply_invoker<opcode, std::tuple<Args...>> {
-    void operator()(std::weak_ptr<rpc::Peer> peer, uint64_t request_id, Args&&... args) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, Args&&... args) const {
         // do something
     }
 };
@@ -141,7 +144,7 @@ public:\
     name##Proxy(std::shared_ptr<rpc::Peer> peer, uint64_t object_id) : rpc::Proxy(peer, object_id) {}
 #define end_class };
 #define request(return_type, opcode, ...) \
-    template<typename... Args, typename Callback> void invoke_##opcode(Args&&... args, Callback callback) { \
+    template<typename Callback, typename... Args> void invoke_##opcode(Callback&& callback, Args&&... args) { \
         impl::proxy_invoker<Opcode::opcode, return_type, __VA_ARGS__> invoker;\
         invoker(get_peer(), std::forward<Args>(args)..., std::forward<Callback>(callback));\
     }
