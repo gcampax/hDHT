@@ -104,12 +104,23 @@ public:
         owns_memory = own_memory;
     }
     Buffer(const Buffer& buffer) = delete;
+    Buffer& operator=(const Buffer&) = delete;
     Buffer(Buffer&& other)
     {
         base = other.base;
         len = other.len;
         owns_memory = other.owns_memory;
         other.owns_memory = false;
+    }
+    Buffer& operator=(Buffer&& other)
+    {
+        if (owns_memory)
+            free(base);
+        base = other.base;
+        len = other.len;
+        owns_memory = other.owns_memory;
+        other.owns_memory = false;
+        return *this;
     }
     Buffer()
     {
@@ -122,12 +133,6 @@ public:
         if (owns_memory)
             free(base);
     }
-    // Buffer has some tricky properties when it comes to
-    // copy and move semantics, and to make sure the code
-    // using Buffer knows what's going on, make sure it
-    // always goes through constructors and not assignments
-    Buffer& operator=(const Buffer&) = delete;
-    Buffer& operator=(Buffer&&) = delete;
 
     explicit operator bool() const {
         return base != nullptr;
@@ -217,7 +222,7 @@ public:
         close();
     }
     virtual void new_connection() {}
-    virtual void read_callback(Error err, const uv::Buffer&)
+    virtual void read_callback(Error err, uv::Buffer&&)
     {
         if (err)
             close();

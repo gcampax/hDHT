@@ -37,29 +37,6 @@ namespace libhdht
 namespace rpc
 {
 
-// RPC-level protocol, as opposed to libhdht protocol
-namespace protocol
-{
-
-struct MessageHeader
-{
-    uint16_t opcode;
-    uint64_t request_id;
-} __attribute__((packed));
-
-struct BaseRequest
-{
-    MessageHeader header;
-    uint64_t object_id;
-} __attribute__((packed));
-
-struct BaseResponse {
-    MessageHeader header;
-    uint32_t error;
-};
-
-}
-
 class Error : public std::runtime_error
 {
 protected:
@@ -78,35 +55,72 @@ public:
 class RemoteError : public Error
 {
 private:
-    int code;
+    uint32_t m_code;
 
 public:
-    RemoteError(int code) : Error(strerror(code)) {}
+    RemoteError(uint32_t code) : Error(strerror(code)), m_code(code) {}
+
+    uint32_t code() const
+    {
+        return m_code;
+    }
 };
 
+// RPC-level protocol, as opposed to libhdht protocol
+namespace protocol
+{
+
+static const uint16_t REPLY_FLAG = 1<<15;
+
+struct MessageHeader
+{
+    uint16_t opcode;
+    uint64_t request_id;
+} __attribute__((packed));
+
+struct BaseRequest
+{
+    MessageHeader header;
+    uint64_t object_id;
+} __attribute__((packed));
+
+struct BaseResponse
+{
+    MessageHeader header;
+    uint32_t error;
+};
+
+}
+
+namespace impl
+{
 class Connection;
+class Server;
+}
+
 class Peer;
 class Proxy;
 class Stub;
-class Server;
 class Context;
 
 class Peer : public std::enable_shared_from_this<Peer>
 {
     friend class Context;
-    friend class Connection;
+    friend class impl::Connection;
 
 private:
     static const unsigned MAX_CONNECTIONS = 3;
 
     struct OutstandingRequest {
-        uv::Buffer request_buffer;
+        rpc::RemoteError error;
+        uv::Buffer payload;
         std::function<void(Error*, const uv::Buffer*)> callback;
     };
+    OutstandingRequest& queue_request(uint64_t request_id, rpc::RemoteError error, uv::Buffer&& payload, const std::function<void(Error*, const uv::Buffer*)>& callback);
 
     const Context *m_context;
     const net::Address m_address;
-    std::vector<Connection*> m_available_connections;
+    std::vector<impl::Connection*> m_available_connections;
     std::unordered_map<uint64_t, std::weak_ptr<Proxy>> m_proxies;
     std::unordered_map<uint64_t, std::shared_ptr<Stub>> m_stubs;
     std::unordered_map<uint64_t, OutstandingRequest> m_requests;
@@ -114,17 +128,23 @@ private:
     uint64_t m_next_req_id = 0;
     unsigned m_next_connection = 0;
 
-    Connection* get_connection();
+    impl::Connection* get_connection();
     void destroy_stub(uint64_t stub_id)
     {
         m_stubs.erase(stub_id);
     }
 
-    void adopt_connection(Connection*);
-    void drop_connection(Connection*);
+    void adopt_connection(impl::Connection*);
+    void drop_connection(impl::Connection*);
+
+    void write_failed(uint64_t request_id, uv::Error err);
+    void reply_received(uint64_t request_id, rpc::RemoteError*, const uv::Buffer* payload);
+    void request_received(uint16_t opcode, uint64_t object_id, uint64_t request_id, const uv::Buffer& payload);
 
 public:
     Peer(Context *ctx, const net::Address& address) : m_context(ctx), m_address(address) {}
+
+    void close_all_connections();
 
     const net::Address& get_address() const
     {
@@ -181,31 +201,12 @@ public:
     void send_error(uint16_t opcode,
                     uint64_t request_id,
                     rpc::RemoteError error);
+    void send_fatal_error(uint16_t opcode,
+                          uint64_t request_id,
+                          rpc::RemoteError error);
     void send_reply(uint16_t opcode,
                     uint64_t request_id,
                     uv::Buffer&& reply);
-
-    /*template<typename Request, typename Callback>
-    void invoke_request(uint64_t object_id,
-                        const typename Request::request_type& req,
-                        Callback&& callback)
-    {
-        struct CallbackWrapper {
-            Callback m_callback;
-            CallbackWrapper(Callback&& callback) : m_callback(std::forward<Callback>(callback)) {}
-
-            void operator()(Error* error, const uv::Buffer* reply) const {
-                if (error != nullptr)
-                    m_callback(error, nullptr);
-                else
-                    m_callback(nullptr, Request::reply_type::unmarshal(*reply));
-            }
-        } callback_wrapper(std::forward<Callback>(callback));
-
-        uv::Buffer buf(req.marshal());
-        invoke_request(Request::opcode, object_id, std::move(buf),
-            sizeof(typename Request::reply_type), callback_wrapper);
-    }*/
 };
 
 class Proxy : public std::enable_shared_from_this<Proxy>
@@ -253,6 +254,15 @@ protected:
         }
         peer->send_error(opcode, request_id, error);
     }
+    void reply_fatal_error(uint16_t opcode, uint64_t request_id, rpc::RemoteError error)
+    {
+        std::shared_ptr<Peer> peer = get_peer();
+        if (!peer) {
+            log(LOG_ERR, "Error reply dropped (peer was garbage collected)");
+            return;
+        }
+        peer->send_fatal_error(opcode, request_id, error);
+    }
 
 public:
     Stub(std::shared_ptr<Peer> peer, uint64_t object_id) : m_peer(peer), m_object_id(object_id) {}
@@ -268,7 +278,7 @@ public:
 
 class Context
 {
-    friend class Server;
+    friend class impl::Server;
 
 private:
     uv::Loop& m_loop;
@@ -276,7 +286,7 @@ private:
     std::unordered_map<net::Address, std::weak_ptr<Peer>> m_known_peers;
     std::vector<std::function<void(std::shared_ptr<Peer>)>> m_stub_factories;
 
-    void new_connection(Connection*);
+    void new_connection(impl::Connection*);
 
 public:
     Context(uv::Loop& loop) : m_loop(loop) {}
@@ -289,7 +299,7 @@ public:
     void add_address(const net::Address& address);
     std::shared_ptr<Peer> get_peer(const net::Address& address);
 
-    uv::Loop& get_event_loop()
+    uv::Loop& get_event_loop() const
     {
         return m_loop;
     }

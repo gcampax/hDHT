@@ -91,7 +91,7 @@ TCPSocket::accept(TCPSocket *client)
 static void
 alloc_memory(uv_handle_t*, size_t suggested_size, uv_buf_t *buf)
 {
-    buf->base = new (std::nothrow) char[suggested_size];
+    buf->base = (char*)malloc(suggested_size);
     buf->len = buf->base ? suggested_size : 0;
 }
 
@@ -105,7 +105,7 @@ TCPSocket::start_reading()
         }
         uv::Error error(nread <= 0 ? -nread : 0);
         uv::Buffer buffer((const uint8_t*)uv_buffer->base, uv_buffer->len, true);
-        handle_downcast(stream)->read_callback(error, buffer);
+        handle_downcast(stream)->read_callback(error, std::move(buffer));
     }));
 }
 

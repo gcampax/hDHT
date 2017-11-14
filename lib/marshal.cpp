@@ -58,6 +58,19 @@ BufferWriter::close()
     return uv::Buffer(buffer, length, true);
 }
 
+void
+BufferWriter::reserve(size_t capacity)
+{
+    if (m_capacity >= capacity)
+        return;
+
+    uint8_t* new_storage = (uint8_t*) realloc(m_storage, capacity);
+    if (new_storage != nullptr) {
+        m_storage = new_storage;
+        m_capacity = capacity;
+    }
+}
+
 #if BYTE_ORDER == BIG_ENDIAN
 static void
 bytereverse(uint8_t* buffer, size_t length)
@@ -104,6 +117,16 @@ BufferWriter::write(const uint8_t* buffer, size_t length, bool adjust_endian)
         bytereverse(m_storage + m_length, length);
 #endif
     m_length += length;
+}
+
+void
+BufferReader::read(uint8_t* buffer, size_t length, bool adjust_endian)
+{
+    if (m_off + length > m_buffer.len)
+        throw ReadError("Buffer too short to read (expected " + std::to_string(length) + " bytes)");
+
+    memcpy(buffer, m_buffer.base + m_off, length);
+    m_off += length;
 }
 
 }

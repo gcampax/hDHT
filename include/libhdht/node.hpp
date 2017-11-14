@@ -59,6 +59,10 @@ public:
     {
         return m_parts;
     }
+    uint8_t* get_buffer()
+    {
+        return m_parts;
+    }
 };
 
 

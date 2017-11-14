@@ -66,6 +66,18 @@ static const size_t reply_size_table[] = {
 #undef begin_class
 };
 
+static const char* request_name_table[] = {
+    "invalid"
+#define begin_class(name)
+#define end_class
+#define request(return_type, opcode, ...) #opcode
+#include <libhdht/protocol.inc.hpp>
+    , nullptr /* max_opcode */
+#undef request
+#undef end_class
+#undef begin_class
+};
+
 template <typename Type, typename Callback, class Tuple, std::size_t... I>
 void dispatch_helper2(Type* object, Callback callback, uint64_t request_id, Tuple&& args, std::index_sequence<I...>)
 {
@@ -87,15 +99,21 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
 }
 
 size_t
-get_request_size(Opcode opcode)
+get_request_size(uint16_t opcode)
 {
-    return impl::request_size_table[(uint16_t)opcode];
+    return impl::request_size_table[opcode];
 }
 
 size_t
-get_reply_size(Opcode opcode)
+get_reply_size(uint16_t opcode)
 {
-    return impl::reply_size_table[(uint16_t)opcode];
+    return impl::reply_size_table[opcode];
+}
+
+const char*
+get_request_name(uint16_t opcode)
+{
+    return impl::request_name_table[opcode];
 }
 
 #define begin_class(name) \
@@ -111,7 +129,7 @@ get_reply_size(Opcode opcode)
 #define end_class \
         default:\
             log(LOG_ERR, "Invalid request %d", opcode); \
-            /* todo report an error */ \
+            reply_fatal_error(opcode, request_id, ENOSYS);\
         } /* close switch */ \
     } /* close method */
 #define request(return_type, opcode, ...) \
@@ -120,6 +138,9 @@ get_reply_size(Opcode opcode)
             impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, rpc::impl::pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));\
         } catch(rpc::RemoteError e) { \
             reply_error((uint16_t)(Opcode::opcode), request_id, e);\
+        } catch(rpc::ReadError e) {\
+            log(LOG_ERR, "Failed to demarshal incoming request");\
+            reply_fatal_error((uint16_t)(Opcode::opcode), request_id, EINVAL);\
         }
 #include <libhdht/protocol.inc.hpp>
 #undef request

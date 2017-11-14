@@ -48,6 +48,7 @@ public:
     ~BufferWriter();
 
     uv::Buffer close();
+    void reserve(size_t capacity);
 
     void write(const uint8_t* buffer, size_t length, bool adjust_endian = false);
 
@@ -63,11 +64,19 @@ public:
     }
 };
 
+struct ReadError : std::runtime_error
+{
+    ReadError(const char *msg) : std::runtime_error(msg) {}
+    ReadError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
 class BufferReader
 {
 private:
     const uv::Buffer& m_buffer;
     size_t m_off;
+
+    void read(uint8_t* into, size_t length, bool adjust_endian = false);
 
 public:
     BufferReader(const uv::Buffer& buffer) : m_buffer(buffer), m_off(0) {}
@@ -75,10 +84,20 @@ public:
     template<typename T>
     T read()
     {
-        // do something
-        return T();
+        T t;
+        read((uint8_t*) &t, sizeof(t), true);
+        return t;
     }
 };
+
+template<>
+inline NodeID
+BufferReader::read<NodeID>()
+{
+    NodeID id;
+    read(id.get_buffer(), NodeID::size, false);
+    return id;
+}
 
 namespace impl
 {

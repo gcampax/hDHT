@@ -119,8 +119,9 @@ struct EmptyRequest {
     }
 };
 
-size_t get_request_size(Opcode opcode);
-size_t get_reply_size(Opcode opcode);
+size_t get_request_size(uint16_t opcode);
+size_t get_reply_size(uint16_t opcode);
+const char *get_request_name(uint16_t opcode);
 
 }
 }
