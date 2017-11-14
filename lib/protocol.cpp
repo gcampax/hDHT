@@ -37,6 +37,11 @@ struct pack_size<Arg> {
     static const size_t size = sizeof(Arg);
 };
 
+template<typename Arg>
+struct pack_size<std::shared_ptr<Arg>> {
+    static const size_t size = sizeof(uint64_t);
+};
+
 template<>
 struct pack_size<void> {
     static const size_t size = 0;
@@ -141,7 +146,8 @@ get_request_name(uint16_t opcode)
         } catch(rpc::ReadError e) {\
             log(LOG_ERR, "Failed to demarshal incoming request");\
             reply_fatal_error((uint16_t)(Opcode::opcode), request_id, EINVAL);\
-        }
+        }\
+        break;
 #include <libhdht/protocol.inc.hpp>
 #undef request
 #undef end_class

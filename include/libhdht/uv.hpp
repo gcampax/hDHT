@@ -173,7 +173,7 @@ private:
         return static_cast<TCPSocket*>((uv_tcp_t*)(socket));
     }
 
-    bool m_usable = false;
+    bool m_usable = true;
 
 public:
     TCPSocket(uv_loop_t* loop);

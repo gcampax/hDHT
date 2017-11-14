@@ -44,7 +44,7 @@ private:
 
     void compact()
     {
-        while (m_off >= m_buffers.front().len) {
+        while (!m_buffers.empty() && m_off >= m_buffers.front().len) {
             m_off -= m_buffers.front().len;
             m_buffers.pop_front();
         }
@@ -316,14 +316,14 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
 void
 Connection::write_complete(uint64_t req_id, uv::Error err)
 {
+    std::string name(get_peer()->get_address().to_string());
     if (err) {
-        std::string name(get_peer_name().to_string());
         log(LOG_WARNING, "Write error to peer %s: %s", name.c_str(), err.what());
         close();
 
         m_peer->write_failed(req_id, err);
     } else {
-        log(LOG_DEBUG, "Successfully written %s %lu", (req_id & (1ULL<<63) ? "reply" : "request"), req_id & ~(1ULL<<63));
+        log(LOG_DEBUG, "Successfully written %s %lu to %s", (req_id & (1ULL<<63) ? "reply" : "request"), req_id & ~(1ULL<<63), name.c_str());
     }
 }
 
@@ -379,6 +379,7 @@ void
 Peer::adopt_connection(impl::Connection* connection)
 {
     m_available_connections.push_back(connection);
+    connection->set_peer(shared_from_this());
     connection->start_reading();
 }
 

@@ -44,7 +44,7 @@ net::Address
 TCPSocket::get_peer_name() const
 {
     net::Address address;
-    int size;
+    int size = 0;
     Error::check(uv_tcp_getpeername(this, address.get(), &size));
     return address;
 }
@@ -101,10 +101,16 @@ TCPSocket::start_reading()
     Error::check(uv_read_start(handle_cast<uv_stream_t>(this), alloc_memory, [](uv_stream_t* stream, ssize_t nread, const uv_buf_t* uv_buffer) {
         if (nread == 0) {
             // EAGAIN
+            free(uv_buffer->base);
             return;
         }
-        uv::Error error(nread <= 0 ? -nread : 0);
-        uv::Buffer buffer((const uint8_t*)uv_buffer->base, uv_buffer->len, true);
+        uv::Error error(nread < 0 ? nread : 0);
+        uv::Buffer buffer;
+
+        if (nread > 0)
+            buffer = uv::Buffer((const uint8_t*)uv_buffer->base, nread, true);
+        else
+            free(uv_buffer->base);
         handle_downcast(stream)->read_callback(error, std::move(buffer));
     }));
 }
@@ -115,6 +121,7 @@ TCPSocket::write(uint64_t req_id, const Buffer* buffers, size_t nbuffers)
     struct request : uv_write_t
     {
         std::vector<Buffer> buf;
+        std::vector<uv_buf_t> uv_buf;
         uint64_t req_id;
     };
     auto req = new (std::nothrow) request();
@@ -125,6 +132,7 @@ TCPSocket::write(uint64_t req_id, const Buffer* buffers, size_t nbuffers)
 
     req->req_id = req_id;
     req->buf.reserve(nbuffers);
+    req->uv_buf.reserve(nbuffers);
     for (size_t i = 0; i < nbuffers; i++) {
         const uv::Buffer& copy_from(buffers[i]);
         if (!copy_from)
@@ -135,9 +143,10 @@ TCPSocket::write(uint64_t req_id, const Buffer* buffers, size_t nbuffers)
             delete req;
             return;
         }
+        req->uv_buf.emplace_back(req->buf.back());
     }
 
-    Error::check(uv_write(req, handle_cast<uv_stream_t>(this), &req->buf[0], req->buf.size(), [](uv_write_t *uv_req, int status) {
+    Error::check(uv_write(req, handle_cast<uv_stream_t>(this), &req->uv_buf[0], req->uv_buf.size(), [](uv_write_t *uv_req, int status) {
         request *req = static_cast<request*>(uv_req);
         handle_downcast(req->handle)->write_complete(req->req_id, status);
         delete req;
