@@ -24,9 +24,12 @@
 
 #include "libhdht/rtree/rectangle.hpp"
 
+#define LEAF_CAPACITY 5
+#define INTERNAL_CAPACITY 5
+
 namespace libhdht {
 
-Node::Node(int m, int M) : m_(m), M_(m) {
+Node::Node() {
 
 }
 
@@ -46,12 +49,46 @@ std::shared_ptr<HilbertValue> Node::getLHV() {
     return lhv_;
 }
 
+void Node::adjustMBR() {
+
+}
+
+void Node::adjustLHV() {
+
+}
+
+const std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
+    return entries_;
+}
+
 Node* Node::getPrevSibling() {
     return prev_sibling_;
 }
 
 Node* Node::getNextSibling() {
     return next_sibling_;
+}
+
+void Node::setPrevSibling(Node* node) {
+    this->prev_sibling_ = node;
+}
+
+void Node::setNextSibling(Node* node) {
+    this->next_sibling_ = node;
+}
+
+std::vector<Node*> Node::getCooperatingSiblings() {
+    std::vector<Node*> cooperating_siblings;
+
+    cooperating_siblings.push_back(this->prev_sibling_);
+    cooperating_siblings.push_back(this);
+    cooperating_siblings.push_back(this->next_sibling_);
+
+    return cooperating_siblings;
+}
+
+void Node::clearEntries() {
+
 }
 
 void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
@@ -66,8 +103,14 @@ Node* Node::findNextNode(std::shared_ptr<HilbertValue> hv) {
     return nullptr;
 }
 
-bool Node::hasCapacity() {
-    return false;
+bool Node::hasCapacity() const {
+    if (leaf_ && entries_.size() < LEAF_CAPACITY) {
+        return true;
+    } else if (!leaf_ && entries_.size() < INTERNAL_CAPACITY) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 } // namespace libhdht

@@ -37,7 +37,8 @@ RTree::~RTree() {
 void RTree::insert(std::shared_ptr<Rectangle> r) {
     std::shared_ptr<HilbertValue> hv(new HilbertValue(r->getCenter()));
     std::shared_ptr<LeafEntry> entry(new LeafEntry(r, hv));
-    
+    std::vector<Node*> siblings;
+
     // I1. Find the appropriate leaf node
     Node* leaf = chooseLeaf(hv);
 
@@ -45,22 +46,15 @@ void RTree::insert(std::shared_ptr<Rectangle> r) {
     Node* new_leaf = nullptr;
     if (leaf->hasCapacity()) {
         leaf->insertLeafEntry(entry);
+        leaf->adjustMBR();
+        leaf->adjustLHV();
     } else {
-        new_leaf = RTreeHelper::handleOverflow(leaf, r);
+        new_leaf = RTreeHelper::handleOverflow(leaf, entry, siblings);
     }
     
     // I3. Propogate changes upward
-    std::vector<Node*> s;
-    s.push_back(leaf);
-    if (new_leaf != nullptr) {
-        s.push_back(new_leaf);
-    }
-    if (leaf->getPrevSibling() != nullptr) {
-        s.push_back(leaf->getPrevSibling());
-    } else if (leaf->getNextSibling() != nullptr) {
-        s.push_back(leaf->getNextSibling());
-    }
-    RTreeHelper::adjustTree(s);
+    this->root_ = RTreeHelper::adjustTree(this->root_, leaf, new_leaf,
+                                          siblings);
 
     // I4. Grow tree taller
     // TODO(keshav2)

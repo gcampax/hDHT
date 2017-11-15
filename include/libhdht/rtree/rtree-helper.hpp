@@ -34,9 +34,16 @@ class RTreeHelper {
     static std::vector<NodeEntry> search(std::shared_ptr<Rectangle> query,
                                          Node* root);
 
-    static void adjustTree(std::vector<Node*> siblings);
+    static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
+                            std::vector<Node*>& siblings);
 
-    static Node* handleOverflow(Node* n, std::shared_ptr<Rectangle> r);
+    static Node* handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
+                                std::vector<Node*>& siblings);
+
+    static void distributeEntries(
+                        std::vector<std::shared_ptr<NodeEntry>>& entries,
+                        std::vector<Node*>& siblings);
+    
 };
 
 } // namespace libhdht

@@ -31,27 +31,32 @@ namespace libhdht {
 // An RTree node
 class Node {
   public:
-    Node(int m, int M);
+    Node();
     ~Node();
     bool isLeaf() const;
     std::shared_ptr<Rectangle> getMBR();
     std::shared_ptr<HilbertValue> getLHV();
+    void adjustMBR();
+    void adjustLHV();
+    const std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
     void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
     Node* getPrevSibling();
     Node* getNextSibling();
+    void setPrevSibling(Node* node);
+    void setNextSibling(Node* node);
+    std::vector<Node*> getCooperatingSiblings();
+    void clearEntries();
     Node* findNextNode(std::shared_ptr<HilbertValue> hv);
-    bool hasCapacity();
+    bool hasCapacity() const;
 
   private:
-    int m_;
-    int M_;
     Node* prev_sibling_;
     Node* next_sibling_;
     std::shared_ptr<Rectangle> mbr_;
     std::shared_ptr<HilbertValue> lhv_;
     bool leaf_;
-    std::vector<NodeEntry> entries_;
+    std::vector<std::shared_ptr<NodeEntry>> entries_;
 };
 
 } // namespace libhdht
