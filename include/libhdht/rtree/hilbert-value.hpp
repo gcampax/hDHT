@@ -20,6 +20,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 namespace libhdht {
 
 // Represents the Hilbert value of a point, which is defined as the length of
@@ -28,7 +31,7 @@ namespace libhdht {
 // TODO(keshav2): Flesh out definition
 class HilbertValue {
   public:
-    HilbertValue();
+    HilbertValue(std::vector<uint32_t> center);
 };
 
 } // namespace libhdht

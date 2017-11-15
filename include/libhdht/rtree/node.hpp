@@ -38,10 +38,16 @@ class Node {
     std::shared_ptr<HilbertValue> getLHV();
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
     void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+    Node* getPrevSibling();
+    Node* getNextSibling();
+    Node* findNextNode(std::shared_ptr<HilbertValue> hv);
+    bool hasCapacity();
 
   private:
     int m_;
     int M_;
+    Node* prev_sibling_;
+    Node* next_sibling_;
     std::shared_ptr<Rectangle> mbr_;
     std::shared_ptr<HilbertValue> lhv_;
     bool leaf_;

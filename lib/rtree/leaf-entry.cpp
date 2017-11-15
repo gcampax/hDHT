@@ -29,7 +29,7 @@
 namespace libhdht {
 
 LeafEntry::LeafEntry(std::shared_ptr<Rectangle> mbr,
-                     std::shared_ptr<Rectangle> lhv) {
+                     std::shared_ptr<HilbertValue> lhv) {
 
 }
 

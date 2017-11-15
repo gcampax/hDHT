@@ -20,9 +20,12 @@
 
 #include "libhdht/rtree/hilbert-value.hpp"
 
+#include <cstdint>
+#include <vector>
+
 namespace libhdht {
 
-HilbertValue::HilbertValue() {
+HilbertValue::HilbertValue(std::vector<uint32_t> center) {
 
 }
 

@@ -20,7 +20,11 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "libhdht/rtree/node.hpp"
+#include "libhdht/rtree/node-entry.hpp"
 #include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
@@ -29,10 +33,12 @@ class RTree {
   public:
     RTree();
     ~RTree();
-    void Insert(const Rectangle& r);
-    void Search(const Rectangle& query);
+    void insert(std::shared_ptr<Rectangle> r);
+    std::vector<NodeEntry> search(std::shared_ptr<Rectangle> query);
     
   private:
+    Node* chooseLeaf(std::shared_ptr<HilbertValue> hv);
+    Node* handleOverflow(Node* leaf);
     Node* root_;
 };
 

@@ -46,12 +46,28 @@ std::shared_ptr<HilbertValue> Node::getLHV() {
     return lhv_;
 }
 
+Node* Node::getPrevSibling() {
+    return prev_sibling_;
+}
+
+Node* Node::getNextSibling() {
+    return next_sibling_;
+}
+
 void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
 
 }
 
 void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
 
+}
+
+Node* Node::findNextNode(std::shared_ptr<HilbertValue> hv) {
+    return nullptr;
+}
+
+bool Node::hasCapacity() {
+    return false;
 }
 
 } // namespace libhdht

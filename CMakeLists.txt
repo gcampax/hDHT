@@ -57,6 +57,7 @@ add_library(hdht SHARED
 	lib/server.cpp
 	lib/uv.cpp
   lib/rtree/rtree.cpp
+  lib/rtree/rtree-helper.cpp
   lib/rtree/node.cpp
   lib/rtree/rectangle.cpp
   lib/rtree/node-entry.cpp

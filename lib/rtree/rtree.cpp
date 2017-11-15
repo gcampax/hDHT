@@ -20,6 +20,10 @@
 
 #include "libhdht/rtree/rtree.hpp"
 
+#include "libhdht/rtree/leaf-entry.hpp"
+#include "libhdht/rtree/node.hpp"
+#include "libhdht/rtree/rtree-helper.hpp"
+
 namespace libhdht {
 
 RTree::RTree() {
@@ -30,12 +34,49 @@ RTree::~RTree() {
 
 }
 
-void RTree::Insert(const Rectangle& r) {
+void RTree::insert(std::shared_ptr<Rectangle> r) {
+    std::shared_ptr<HilbertValue> hv(new HilbertValue(r->getCenter()));
+    std::shared_ptr<LeafEntry> entry(new LeafEntry(r, hv));
+    
+    // I1. Find the appropriate leaf node
+    Node* leaf = chooseLeaf(hv);
 
+    // I2. Insert r in a leaf node
+    Node* new_leaf = nullptr;
+    if (leaf->hasCapacity()) {
+        leaf->insertLeafEntry(entry);
+    } else {
+        new_leaf = RTreeHelper::handleOverflow(leaf, r);
+    }
+    
+    // I3. Propogate changes upward
+    std::vector<Node*> s;
+    s.push_back(leaf);
+    if (new_leaf != nullptr) {
+        s.push_back(new_leaf);
+    }
+    if (leaf->getPrevSibling() != nullptr) {
+        s.push_back(leaf->getPrevSibling());
+    } else if (leaf->getNextSibling() != nullptr) {
+        s.push_back(leaf->getNextSibling());
+    }
+    RTreeHelper::adjustTree(s);
+
+    // I4. Grow tree taller
+    // TODO(keshav2)
 }
 
-void RTree::Search(const Rectangle& query) {
+std::vector<NodeEntry> RTree::search(std::shared_ptr<Rectangle> query) {
+    return RTreeHelper::search(query, root_);
+}
 
-} 
+Node* RTree::chooseLeaf(std::shared_ptr<HilbertValue> hv) {
+    Node* n = root_;
+
+    while (!n->isLeaf()) {
+        n = n->findNextNode(hv);
+    }
+    return n;
+}
 
 } // namespace libhdht
