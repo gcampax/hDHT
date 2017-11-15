@@ -20,11 +20,12 @@
 
 #include "libhdht/rtree/rectangle.hpp"
 
+#include <cstdint>
 #include <vector>
 
 namespace libhdht {
 
-Rectangle::Rectangle(std::vector<int> upper, std::vector<int> lower)
+Rectangle::Rectangle(std::vector<uint32_t> upper, std::vector<uint32_t> lower)
     : upper_(upper), lower_(lower) {
 
 }
@@ -33,25 +34,40 @@ Rectangle::~Rectangle() {
 
 }
 
-std::vector<int> Rectangle::getCenter() {
-    std::vector<int> center;
+std::vector<uint32_t> Rectangle::getCenter() {
+    std::vector<uint32_t> center;
+    for (uint32_t i = 0; i < this->upper_.size(); i++) {
+        center.push_back((this->upper_[i] + this->lower_[i]) / 2);
+    }
     return center;
 }
     
-const std::vector<int> Rectangle::getLower() const {
+const std::vector<uint32_t> Rectangle::getLower() const {
     return lower_;
 }
 
-const std::vector<int> Rectangle::getUpper() const {
+const std::vector<uint32_t> Rectangle::getUpper() const {
     return upper_;
 }
  
 bool Rectangle::intersects(const Rectangle& other) {
-    return false;
+    for (uint32_t i = 0; i < this->upper_.size(); i++) {
+        if (this->upper_[i] > other.lower_[i] ||
+            other.upper_[i] > this->lower_[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool Rectangle::contains(const Rectangle& other) {
-    return false;
+    for (uint32_t i = 0; i < this->upper_.size(); i++) {
+        if (this->upper_[i] < other.upper_[i] ||
+            this->lower_[i] > other.lower_[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace libhdht

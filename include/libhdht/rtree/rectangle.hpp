@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 namespace libhdht {
@@ -27,17 +28,17 @@ namespace libhdht {
 // An n-dimensional rectangle
 class Rectangle {
   public:
-    Rectangle(std::vector<int> upper, std::vector<int> lower);
+    Rectangle(std::vector<uint32_t> upper, std::vector<uint32_t> lower);
     ~Rectangle();
-    std::vector<int> getCenter();
-    const std::vector<int> getLower() const;
-    const std::vector<int> getUpper() const;
+    std::vector<uint32_t> getCenter();
+    const std::vector<uint32_t> getLower() const;
+    const std::vector<uint32_t> getUpper() const;
     bool intersects(const Rectangle& other);
     bool contains(const Rectangle& other);
 
   private:
-    std::vector<int> upper_;
-    std::vector<int> lower_;
+    std::vector<uint32_t> upper_;
+    std::vector<uint32_t> lower_;
 };
 
 } // namespace libhdht
