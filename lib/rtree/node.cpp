@@ -61,6 +61,10 @@ const std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
     return entries_;
 }
 
+Node* Node::getParent() {
+    return getParent();
+}
+
 Node* Node::getPrevSibling() {
     return prev_sibling_;
 }

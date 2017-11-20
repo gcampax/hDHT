@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "libhdht/rtree/node-entry.hpp"
+#include "libhdht/rtree/internal-entry.hpp"
 #include "libhdht/rtree/rectangle.hpp"
 
 namespace libhdht {
@@ -48,9 +49,59 @@ Node* RTreeHelper::handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
     return new_node;
 }
 
-Node* RTreeHelper::adjustTree(Node* root, Node* leaf, Node* new_leaf,
+Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
                               std::vector<Node*>& siblings) {
-    return nullptr;
+    Node* new_parent = nullptr;
+    std::vector<Node*> local_siblings;
+    std::vector<Node*> new_siblings;
+    bool done = false;
+    while (!done) {
+        Node* parent = node->getParent();
+        if (parent == nullptr) {
+            done = true;
+
+            if (new_node != nullptr) {
+              std::shared_ptr<InternalEntry> node_entry(
+                  new InternalEntry(node));
+              std::shared_ptr<InternalEntry> new_node_entry(
+                  new InternalEntry(new_node));
+              root = new Node();
+              root->insertInternalEntry(node_entry);
+              root->insertInternalEntry(new_node_entry);
+            }
+        } else {
+            if (new_node != nullptr) {
+                std::shared_ptr<InternalEntry> new_node_entry(
+                    new InternalEntry(new_node));
+                if (parent->hasCapacity()) {
+                    parent->insertInternalEntry(new_node_entry);
+                    parent->adjustLHV();
+                    parent->adjustMBR();
+                    new_siblings.push_back(parent);
+                } else {
+                    new_parent = RTreeHelper::handleOverflow(parent,
+                                                             new_node_entry,
+                                                             new_siblings);
+                }
+            } else {
+                new_siblings.push_back(parent);
+            }
+
+            for (auto& sibling : local_siblings) {
+                sibling->getParent()->adjustLHV();
+                sibling->getParent()->adjustMBR();
+            }
+
+            local_siblings.clear();
+            for (const auto& sibling : new_siblings) {
+                local_siblings.push_back(sibling);
+            }
+
+            node = parent;
+            new_node = new_parent;
+        }
+    }
+    return root;
 }
 
 void RTreeHelper::distributeEntries(

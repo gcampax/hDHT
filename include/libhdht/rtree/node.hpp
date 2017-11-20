@@ -41,6 +41,7 @@ class Node {
     const std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
     void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+    Node* getParent();
     Node* getPrevSibling();
     Node* getNextSibling();
     void setPrevSibling(Node* node);
