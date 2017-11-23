@@ -1,5 +1,6 @@
 #include "libhdht/rtree/rtree-helper.hpp"
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -107,7 +108,22 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
 void RTreeHelper::distributeEntries(
                         std::vector<std::shared_ptr<NodeEntry>>& entries,
                         std::vector<Node*>& siblings) {
-
+    int entries_per_node = (int) (std::ceil(
+          static_cast<float> (entries.size()) / siblings.size()));
+    
+    uint32_t entry_idx = 0;
+    for (const auto& sibling : siblings) {
+        for (int i = 0; i < entries_per_node && entry_idx < entries.size();
+             i++) {
+            if (entries[entry_idx]->isLeafEntry()) {
+                sibling->insertLeafEntry(entries[entry_idx++]);
+            } else {
+                sibling->insertInternalEntry(entries[entry_idx++]);
+            }
+        }
+        sibling->adjustLHV();
+        sibling->adjustMBR();
+    }
 }
 
 } // namespace libhdht
