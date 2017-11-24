@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <map>
+#include <cassert>
 
 #include "node.hpp"
 #include "client-node.hpp"
@@ -36,9 +37,34 @@ class Table
 {
     std::map<NodeID, Node*> m_known_nodes;
 
+    uint8_t m_resolution;
+
 public:
-    Table() {}
+    Table(uint8_t resolution)
+    {
+        // there is more than one client
+        assert(resolution > 0);
+        // we can represent nodes in that many bytes
+        assert(resolution <= NodeID::size * 8);
+    }
     ~Table();
+
+    // the log order of the Hilber curve (= the resolution of the grid, at the finest level)
+    // this is the log of the maximum number of clients
+    uint64_t resolution() const
+    {
+        return m_resolution;
+    }
+
+    bool is_valid_node_id(const NodeID& id) const
+    {
+        return id.has_mask(m_resolution);
+    }
+
+    NodeID get_node_id_for_point(GeoPoint2D& pt) const
+    {
+        return NodeID(pt, m_resolution);
+    }
 
     Node *get_existing_node(const NodeID&) const;
     LocalClientNode *get_or_create_local_client_node(const NodeID&);

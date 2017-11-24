@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <cassert>
 
 #include "geo.hpp"
 #include "net.hpp"
@@ -42,9 +43,10 @@ public:
 
     NodeID();
     NodeID(const std::string& str);
-    NodeID(const GeoPoint2D&);
+    NodeID(const GeoPoint2D&, uint8_t resolution);
 
     GeoPoint2D to_point() const;
+    bool has_mask(uint8_t mask) const;
 
     bool operator==(const NodeID& o) const
     {
@@ -65,6 +67,28 @@ public:
     }
 };
 
+class NodeIDRange
+{
+private:
+    NodeID m_from;
+    uint8_t m_log_size;
+public:
+    NodeIDRange(const NodeID& from, uint8_t log_size) : m_from(from), m_log_size(log_size)
+    {
+        assert(log_size <= 8*NodeID::size);
+    }
+
+    const NodeID& from() const
+    {
+        return m_from;
+    }
+    uint64_t log_size() const
+    {
+        return m_log_size;
+    }
+
+    bool contains(const NodeID&) const;
+};
 
 // Any node in the DHT, either a client or a server
 class Node

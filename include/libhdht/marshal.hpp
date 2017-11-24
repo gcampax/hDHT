@@ -62,6 +62,25 @@ public:
     {
         write(node_id.get_buffer(), NodeID::size, false);
     }
+
+    void write(const NodeIDRange& range)
+    {
+        write(range.from());
+        write(range.log_size());
+    }
+
+    void write(const net::Address& address)
+    {
+        write(address.to_string());
+    }
+
+    void write(const std::string& str)
+    {
+        if (str.size() > std::numeric_limits<uint16_t>::max())
+            throw std::length_error("Strings larger than 65,536 characters cannot be marshalled");
+        write(static_cast<uint16_t>(str.size()));
+        write((const uint8_t*)str.c_str(), str.size(), false);
+    }
 };
 
 struct ReadError : std::runtime_error
@@ -97,6 +116,35 @@ BufferReader::read<NodeID>()
     NodeID id;
     read(id.get_buffer(), NodeID::size, false);
     return id;
+}
+
+template<>
+inline NodeIDRange
+BufferReader::read<NodeIDRange>()
+{
+    NodeID from = read<NodeID>();
+    uint8_t log_size = read<uint8_t>();
+    if (log_size > 8*NodeID::size)
+        throw ReadError("Invalid NodeID range size");
+    return NodeIDRange(std::move(from), log_size);
+}
+
+template<>
+inline std::string
+BufferReader::read<std::string>()
+{
+    size_t length = read<uint16_t>();
+    std::string str;
+    str.resize(length);
+    read((uint8_t*)str.data(), length, false);
+    return str;
+}
+
+template<>
+inline net::Address
+BufferReader::read<net::Address>()
+{
+    return net::Address(read<std::string>());
 }
 
 namespace impl
@@ -175,6 +223,34 @@ struct single_marshaller<NodeID>
     static NodeID from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
         return reader.read<NodeID>();
+    }
+};
+
+template<>
+struct single_marshaller<net::Address>
+{
+    static void to_buffer(BufferWriter& writer, const net::Address& obj)
+    {
+        writer.write(obj);
+    }
+
+    static net::Address from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        return reader.read<net::Address>();
+    }
+};
+
+template<>
+struct single_marshaller<NodeIDRange>
+{
+    static void to_buffer(BufferWriter& writer, const NodeIDRange& obj)
+    {
+        writer.write(obj);
+    }
+
+    static NodeIDRange from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        return reader.read<NodeIDRange>();
     }
 };
 

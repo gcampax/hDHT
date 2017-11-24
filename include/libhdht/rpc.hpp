@@ -25,6 +25,7 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include <limits>
 
 #include "net.hpp"
 #include "uv.hpp"
@@ -71,6 +72,7 @@ namespace protocol
 {
 
 static const uint16_t REPLY_FLAG = 1<<15;
+static const size_t MAX_PAYLOAD_SIZE = std::numeric_limits<uint16_t>::max();
 
 struct MessageHeader
 {
@@ -82,12 +84,14 @@ struct BaseRequest
 {
     MessageHeader header;
     uint64_t object_id;
+    uint16_t payload_size;
 } __attribute__((packed));
 
 struct BaseResponse
 {
     MessageHeader header;
     uint32_t error;
+    uint16_t payload_size;
 };
 
 }
@@ -118,8 +122,8 @@ private:
     };
     OutstandingRequest& queue_request(uint64_t request_id, rpc::RemoteError error, uv::Buffer&& payload, const std::function<void(Error*, const uv::Buffer*)>& callback);
 
-    const Context *m_context;
-    const net::Address m_address;
+    Context *m_context;
+    std::unordered_set<net::Address> m_addresses;
     std::vector<impl::Connection*> m_available_connections;
     std::unordered_map<uint64_t, std::weak_ptr<Proxy>> m_proxies;
     std::unordered_map<uint64_t, std::shared_ptr<Stub>> m_stubs;
@@ -142,13 +146,19 @@ private:
     void request_received(uint16_t opcode, uint64_t object_id, uint64_t request_id, const uv::Buffer& payload);
 
 public:
-    Peer(Context *ctx, const net::Address& address) : m_context(ctx), m_address(address) {}
+    Peer(Context *ctx) : m_context(ctx) {}
 
     void close_all_connections();
 
-    const net::Address& get_address() const
+    void add_listening_address(const net::Address& address);
+    void remove_listening_address(const net::Address& address);
+
+    net::Address get_listening_address() const
     {
-        return m_address;
+        if (m_addresses.empty())
+            return net::Address();
+        // FIXME: choose one that is connectable
+        return *m_addresses.begin();
     }
 
     std::shared_ptr<Stub> get_stub(uint64_t object)
@@ -289,6 +299,8 @@ private:
     void new_connection(impl::Connection*);
 
 public:
+    enum class AddressType { Static, Dynamic };
+
     Context(uv::Loop& loop) : m_loop(loop) {}
 
     template<typename Callback>
@@ -297,7 +309,12 @@ public:
         m_stub_factories.emplace_back(std::forward<Callback>(callback));
     }
     void add_address(const net::Address& address);
-    std::shared_ptr<Peer> get_peer(const net::Address& address);
+    net::Address get_listening_address() const;
+
+    std::shared_ptr<Peer> get_peer(const net::Address& address, AddressType type = AddressType::Static);
+
+    void remove_peer_address(std::shared_ptr<Peer> peer, const net::Address& address);
+    void add_peer_address(std::shared_ptr<Peer> peer, const net::Address& address);
 
     uv::Loop& get_event_loop() const
     {

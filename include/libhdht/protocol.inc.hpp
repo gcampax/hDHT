@@ -33,19 +33,42 @@
 // This is automatically converted to the stub type in the declaration of the proxy
 // containing that request
 
-begin_class(Master)
+// A single Server (which can serve many virtual ServerNodes)
+// An instance of this object is always available at object id 1
+// The protocol initiates with each peer sending an hello() to another Server, of which it
+// knows the address
+begin_class(Server)
     // server_hello: a server contacts another server to bootstrap the protocol
-    request(void, server_hello, std::shared_ptr<MasterProxy>)
+    // the first and only argument is the "primary address" of the server (a routable address,
+    // with an open port, unlike the peer address which would use some random high port)
+    // the server who performs the request must be listening on the given address and
+    // must export a Server object at object id 1
+    request(void, server_hello, net::Address)
 
-    // register_server_node: a virtual server node joins the DHT
-    request(void, register_server_node, NodeID, std::shared_ptr<ServerNodeProxy>)
+    // client_hello: a client contacts a server to bootstrap the protocol
+    // the client must be listening on the given address and export a Client object at
+    // object id 1
+    request(void, client_hello, net::Address)
 
-    // register_client_node: a client node joins the DHT
-    request(void, register_client_node, double, double, std::shared_ptr<ClientNodeProxy>)
+    // control_range: start anserwing requests for this NodeIDRange
+    // this is called by a server
+    request(void, control_range, NodeIDRange)
+
+    // find_controlling_server: find the address of the server that controls the
+    // range containing this NodeID
+    // this is called by a client or a server
+    request(net::Address, find_controlling_server, NodeID)
+
+    // set the physical location of the calling client
+    // this is called by a client only
+    request(void, set_location, double, double)
+
+    request(net::Address, find_client_address, NodeID)
+
+    // search_clients: find all clients that are registered in the DHT in this
+    // rectangle
+    //request(void, search_clients, Rectangle, std::vector<NodeID>)
 end_class
 
-begin_class(ServerNode)
-end_class
-
-begin_class(ClientNode)
+begin_class(Client)
 end_class

@@ -24,53 +24,6 @@ namespace libhdht {
 
 namespace protocol {
 
-namespace impl
-{
-
-template<typename... Args>
-struct pack_size {
-    static const size_t size = sizeof(std::tuple<Args...>);
-};
-
-template<typename Arg>
-struct pack_size<Arg> {
-    static const size_t size = sizeof(Arg);
-};
-
-template<typename Arg>
-struct pack_size<std::shared_ptr<Arg>> {
-    static const size_t size = sizeof(uint64_t);
-};
-
-template<>
-struct pack_size<void> {
-    static const size_t size = 0;
-};
-
-static const size_t request_size_table[] = {
-    0 /*invalid*/
-#define begin_class(name)
-#define end_class
-#define request(return_type, opcode, ...) ,pack_size<__VA_ARGS__>::size
-#include <libhdht/protocol.inc.hpp>
-    ,0 /* max_opcode */
-#undef request
-#undef end_class
-#undef begin_class
-};
-
-static const size_t reply_size_table[] = {
-    0 /*invalid*/
-#define begin_class(name)
-#define end_class
-#define request(return_type, opcode, ...) ,pack_size<return_type>::size
-#include <libhdht/protocol.inc.hpp>
-    ,0 /* max_opcode */
-#undef request
-#undef end_class
-#undef begin_class
-};
-
 static const char* request_name_table[] = {
     "invalid"
 #define begin_class(name)
@@ -82,6 +35,15 @@ static const char* request_name_table[] = {
 #undef end_class
 #undef begin_class
 };
+
+const char*
+get_request_name(uint16_t opcode)
+{
+    return request_name_table[opcode];
+}
+
+namespace impl
+{
 
 template <typename Type, typename Callback, class Tuple, std::size_t... I>
 void dispatch_helper2(Type* object, Callback callback, uint64_t request_id, Tuple&& args, std::index_sequence<I...>)
@@ -101,24 +63,6 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
     (object->*callback)(request_id, arg);
 }
 
-}
-
-size_t
-get_request_size(uint16_t opcode)
-{
-    return impl::request_size_table[opcode];
-}
-
-size_t
-get_reply_size(uint16_t opcode)
-{
-    return impl::reply_size_table[opcode];
-}
-
-const char*
-get_request_name(uint16_t opcode)
-{
-    return impl::request_name_table[opcode];
 }
 
 #define begin_class(name) \

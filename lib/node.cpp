@@ -55,7 +55,7 @@ NodeID::NodeID(const std::string& str)
     }
 }
 
-NodeID::NodeID(const GeoPoint2D& point)
+NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
 {
     // TODO do something
     memset(m_parts, 0, sizeof(m_parts));

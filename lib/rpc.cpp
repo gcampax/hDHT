@@ -118,8 +118,9 @@ public:
 class Connection : public uv::TCPSocket
 {
 private:
-    const Context* m_context;
+    Context* m_context;
     std::shared_ptr<Peer> m_peer;
+    net::Address m_address;
 
     // State associated with reading
     LogicalBuffer m_temporary_buffers;
@@ -132,17 +133,19 @@ private:
         ReadingOpcode,
         ReadingObjectId,
         ReadingError,
+        ReadingPayloadSize,
         ReadingPayload
     } m_state = State::ReadingOpcode;
 
 public:
-    Connection(const Context *ctx) : uv::TCPSocket(ctx->get_event_loop())
+    Connection(Context *ctx) : uv::TCPSocket(ctx->get_event_loop())
     {
         m_context = ctx;
     }
-    Connection(const Context *ctx, const net::Address& address) : uv::TCPSocket(ctx->get_event_loop())
+    Connection(Context *ctx, const net::Address& address) : uv::TCPSocket(ctx->get_event_loop())
     {
         m_context = ctx;
+        m_address = address;
         connect(address);
     }
 
@@ -166,16 +169,37 @@ public:
                      uint64_t request_id,
                      const uv::Buffer& payload);
 
+    virtual void connected(uv::Error err) override;
     virtual void closed() override;
     virtual void read_callback(uv::Error err, uv::Buffer&&) override;
     virtual void write_complete(uint64_t req_id, uv::Error err) override;
 };
 
 void
+Connection::connected(uv::Error err)
+{
+    if (err) {
+        if (m_address.is_valid()) {
+            std::string name(m_address.to_string());
+            log(LOG_WARNING, "Failed to connect to %s: %s", name.c_str(), err.what());
+        } else {
+            log(LOG_WARNING, "Failed to connect: %s", err.what());
+        }
+        close();
+        return;
+    }
+
+    m_address = get_peer_name();
+    m_context->add_peer_address(m_peer, m_address);
+}
+
+void
 Connection::closed()
 {
-    if (m_peer)
+    if (m_peer) {
         m_peer->drop_connection(this);
+        m_context->remove_peer_address(m_peer, m_address);
+    }
     uv::TCPSocket::closed();
 }
 
@@ -183,7 +207,7 @@ void
 Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
 {
     if (err) {
-        std::string name(get_peer_name().to_string());
+        std::string name(m_address.to_string());
         if (err == UV_EOF) {
             log(LOG_NOTICE, "Connection with peer %s closed", name.c_str());
         } else {
@@ -247,8 +271,7 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
                 }
 
                 m_current_object = object_id;
-                m_expected_bytes = ::libhdht::protocol::get_request_size(m_opcode);
-                m_state = State::ReadingPayload;
+                m_state = State::ReadingPayloadSize;
                 break;
             } else {
                 has_data = false;
@@ -262,8 +285,7 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
                 uint32_t error_code = le32toh(*p_error_code);
 
                 if (error_code == 0) { // no error!
-                    m_expected_bytes = ::libhdht::protocol::get_reply_size(m_opcode & ~protocol::REPLY_FLAG);
-                    m_state = State::ReadingPayload;
+                    m_state = State::ReadingPayloadSize;
                 } else {
                     rpc::RemoteError error(error_code);
 
@@ -275,6 +297,20 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
                     m_state = State::ReadingOpcode;
                     m_peer->reply_received(request_id, &error, nullptr);
                 }
+                break;
+            } else {
+                has_data = false;
+                break;
+            }
+
+        case State::ReadingPayloadSize:
+            if (m_temporary_buffers.size() >= sizeof(uint16_t)) {
+                uv::Buffer payload_size_buffer = m_temporary_buffers.read(sizeof(uint16_t));
+                uint16_t *p_payload_size = (uint16_t*) payload_size_buffer.base;
+                uint16_t payload_size = le16toh(*p_payload_size);
+
+                m_expected_bytes = payload_size;
+                m_state = State::ReadingPayload;
                 break;
             } else {
                 has_data = false;
@@ -316,9 +352,9 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
 void
 Connection::write_complete(uint64_t req_id, uv::Error err)
 {
-    std::string name(get_peer()->get_address().to_string());
+    std::string name(m_address.to_string());
     if (err) {
-        log(LOG_WARNING, "Write error to peer %s: %s", name.c_str(), err.what());
+        log(LOG_WARNING, "Write error to %s: %s", name.c_str(), err.what());
         close();
 
         m_peer->write_failed(req_id, err);
@@ -338,6 +374,8 @@ Connection::write_request(uint16_t opcode,
     header.write(opcode);
     header.write(request_id);
     header.write(object_id);
+    assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
+    header.write(static_cast<uint16_t>(payload.len));
 
     uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
     write(request_id, buffers, 2);
@@ -352,7 +390,9 @@ Connection::write_reply(uint16_t opcode,
     header.reserve(sizeof(protocol::BaseResponse));
     header.write(opcode);
     header.write(request_id);
-    header.write(0 /* error code */);
+    header.write(static_cast<uint32_t>(0) /* error code */);
+    assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
+    header.write(static_cast<uint16_t>(payload.len));
 
     uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
     write(request_id | (1ULL<<63), buffers, 2);
@@ -368,6 +408,7 @@ Connection::write_error(uint16_t opcode,
     header.write(opcode);
     header.write(request_id);
     header.write(error.code());
+    header.write(static_cast<uint16_t>(0));
 
     uv::Buffer buffers[1] = { header.close() };
     write(request_id | (1ULL<<63), buffers, 1);
@@ -410,7 +451,11 @@ Peer::get_connection()
             return conn;
     }
 
-    impl::Connection *new_connection = new impl::Connection(m_context, m_address);
+    net::Address address = get_listening_address();
+    if (!address.is_valid())
+        return nullptr;
+
+    impl::Connection *new_connection = new impl::Connection(m_context, address);
     adopt_connection(new_connection);
     return new_connection;
 }
@@ -428,9 +473,20 @@ Peer::invoke_request(uint16_t opcode,
                      uv::Buffer&& payload,
                      const std::function<void(Error*, const uv::Buffer*)>& callback)
 {
+    if (payload.len > protocol::MAX_PAYLOAD_SIZE) {
+        rpc::NetworkError err(UV_E2BIG);
+        callback(&err, nullptr);
+        return;
+    }
+    impl::Connection *connection = get_connection();
+    if (connection == nullptr) {
+        rpc::NetworkError err(UV_EAI_NONAME);
+        callback(&err, nullptr);
+        return;
+    }
+
     uint64_t request_id = m_next_req_id++;
     OutstandingRequest& req = queue_request(request_id, 0, std::move(payload), callback);
-    impl::Connection *connection = get_connection();
     connection->write_request(opcode, request_id, object_id, req.payload);
     // TODO start a retransmission timeout
 }
@@ -442,6 +498,11 @@ Peer::send_error(uint16_t opcode,
 {
     OutstandingRequest& req = queue_request(request_id | (1ULL<<63), error, uv::Buffer(), nullptr);
     impl::Connection *connection = get_connection();
+    if (connection == nullptr) {
+        // connection was dropped and we can't reconnect, ignore until the other peer connects again
+        return;
+    }
+
     connection->write_error(opcode, request_id, req.error);
 }
 
@@ -461,6 +522,11 @@ Peer::send_reply(uint16_t opcode,
 {
     OutstandingRequest& req = queue_request(request_id | (1ULL<<63), 0, std::move(reply), nullptr);
     impl::Connection *connection = get_connection();
+    if (connection == nullptr) {
+        // connection was dropped and we can't reconnect, ignore until the other peer connects again
+        return;
+    }
+
     connection->write_reply(opcode, request_id, req.payload);
 }
 
@@ -499,6 +565,20 @@ Peer::write_failed(uint64_t request_id, uv::Error err)
 
 }
 
+void
+Peer::add_listening_address(const net::Address& address)
+{
+    m_addresses.insert(address);
+    m_context->add_peer_address(shared_from_this(), address);
+}
+
+void
+Peer::remove_listening_address(const net::Address& address)
+{
+    m_addresses.erase(address);
+    m_context->remove_peer_address(shared_from_this(), address);
+}
+
 namespace impl
 {
 
@@ -535,7 +615,7 @@ Context::add_address(const net::Address& address)
 }
 
 std::shared_ptr<Peer>
-Context::get_peer(const net::Address& address)
+Context::get_peer(const net::Address& address, Context::AddressType type)
 {
     auto it = m_known_peers.find(address);
     if (it != m_known_peers.end()) {
@@ -544,12 +624,24 @@ Context::get_peer(const net::Address& address)
             return ptr;
     }
 
-    std::shared_ptr<Peer> ptr = std::make_shared<Peer>(this, address);
+    std::shared_ptr<Peer> ptr = std::make_shared<Peer>(this);
     for (auto& factory : m_stub_factories)
         factory(ptr);
-    m_known_peers.insert(std::make_pair(address, ptr));
+    if (type == AddressType::Static)
+        ptr->add_listening_address(address);
+    else
+        m_known_peers.insert(std::make_pair(address, ptr));
 
     return ptr;
+}
+
+net::Address
+Context::get_listening_address() const
+{
+    if (m_listening_sockets.empty())
+        return net::Address();
+
+    return m_listening_sockets.front()->get_peer_name();
 }
 
 void
@@ -559,10 +651,22 @@ Context::new_connection(impl::Connection* connection)
         net::Address address = connection->get_peer_name();
         log(LOG_INFO, "New connection from %s", address.to_string().c_str());
 
-        get_peer(address)->adopt_connection(connection);
+        get_peer(address, AddressType::Dynamic)->adopt_connection(connection);
     } catch(std::exception& e) {
         log(LOG_WARNING, "Failed to handle new connection: %s", e.what());
     }
+}
+
+void
+Context::add_peer_address(std::shared_ptr<Peer> peer, const net::Address& address)
+{
+    m_known_peers.insert(std::make_pair(address, peer));
+}
+
+void
+Context::remove_peer_address(std::shared_ptr<Peer> peer, const net::Address& address)
+{
+    m_known_peers.erase(address);
 }
 
 // empty destructor, just to fill in the vtable slot

@@ -95,7 +95,7 @@ public:
     {
         return (sockaddr*)&m_address;
     }
-    size_t size() const
+    socklen_t size() const
     {
         if (m_address.ss_family == 0)
             return 0;

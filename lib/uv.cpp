@@ -86,6 +86,7 @@ void
 TCPSocket::accept(TCPSocket *client)
 {
     Error::check(uv_accept(handle_cast<uv_stream_t>(this), handle_cast<uv_stream_t>(client)));
+    connected(0);
 }
 
 static void

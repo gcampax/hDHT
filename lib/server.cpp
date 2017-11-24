@@ -25,43 +25,58 @@
 namespace libhdht
 {
 
-class MasterImpl : public protocol::MasterStub
-{
+class ServerMasterImpl : public protocol::ServerStub {
 public:
-    MasterImpl(std::shared_ptr<rpc::Peer> peer, uint64_t object_id) : protocol::MasterStub(peer, object_id)
+    ServerMasterImpl(std::shared_ptr<rpc::Peer> peer, uint64_t object_id) : protocol::ServerStub(peer, object_id)
     {
         assert(object_id == protocol::MASTER_OBJECT_ID);
     }
 
-    virtual void handle_server_hello(uint64_t request_id, std::shared_ptr<protocol::MasterProxy> other) override
+    virtual void handle_server_hello(uint64_t request_id, net::Address server_address) override
     {
-        if (other == nullptr)
-            throw rpc::RemoteError(EINVAL);
-
         auto peer = get_peer();
-        log(LOG_INFO, "Received ServerHello from %s", peer->get_address().to_string().c_str());
+        log(LOG_INFO, "Received ServerHello from %s", server_address.to_string().c_str());
+        peer->add_listening_address(server_address);
 
         // TODO: do something with it
         reply_server_hello(request_id);
     }
 
-    virtual void handle_register_server_node(uint64_t request_id, NodeID node_id, std::shared_ptr<protocol::ServerNodeProxy> node) override
+    virtual void handle_client_hello(uint64_t request_id, net::Address client_address) override
     {
-        log(LOG_ERR, "register_server_node: not implemented yet");
-        throw rpc::RemoteError(ENOSYS);
+        auto peer = get_peer();
+        log(LOG_INFO, "Received ClientHello from %s", client_address.to_string().c_str());
+        peer->add_listening_address(client_address);
+
+        // TODO: do something with it
+        reply_client_hello(request_id);
     }
 
-    virtual void handle_register_client_node(uint64_t request_id, double latitude, double longitude, std::shared_ptr<protocol::ClientNodeProxy> node) override
+    virtual void handle_control_range(uint64_t request_id, NodeIDRange range) override
     {
-        log(LOG_ERR, "register_client_node: not implemented yet");
-        throw rpc::RemoteError(ENOSYS);
+
+    }
+
+    virtual void handle_find_controlling_server(uint64_t request_id, NodeID id) override
+    {
+
+    }
+
+    virtual void handle_set_location(uint64_t request_id, double latitude, double longitude) override
+    {
+
+    }
+
+    virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override
+    {
+
     }
 };
 
-ServerContext::ServerContext(uv::Loop& loop) : m_rpc(loop)
+ServerContext::ServerContext(uv::Loop& loop) : m_rpc(loop), m_table(0)
 {
     m_rpc.add_stub_factory([](std::shared_ptr<rpc::Peer> peer) {
-        peer->create_named_stub<MasterImpl>(protocol::MASTER_OBJECT_ID);
+        peer->create_named_stub<ServerMasterImpl>(protocol::MASTER_OBJECT_ID);
     });
 }
 
@@ -80,19 +95,21 @@ ServerContext::add_peer(const net::Address& address)
 void
 ServerContext::start()
 {
+    net::Address own_address = m_rpc.get_listening_address();
+
     // register ourselves with the peers we know about
     for (auto address : m_peers) {
         auto peer = m_rpc.get_peer(address);
 
-        auto self = std::static_pointer_cast<MasterImpl>(peer->get_stub(protocol::MASTER_OBJECT_ID));
-        auto master = peer->get_proxy<protocol::MasterProxy>(protocol::MASTER_OBJECT_ID);
-        master->invoke_server_hello([peer](rpc::Error *error) {
+        auto self = std::static_pointer_cast<ServerMasterImpl>(peer->get_stub(protocol::MASTER_OBJECT_ID));
+        auto master = peer->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
+        master->invoke_server_hello([peer, address](rpc::Error *error) {
             if (error) {
-                log(LOG_WARNING, "Failed to register with %s: %s", peer->get_address().to_string().c_str(), error->what());
+                log(LOG_WARNING, "Failed to register with %s: %s", address.to_string().c_str(), error->what());
             } else {
-                log(LOG_INFO, "Registered with %s successfully", peer->get_address().to_string().c_str());
+                log(LOG_INFO, "Registered with %s successfully", address.to_string().c_str());
             }
-        }, self);
+        }, own_address);
     }
 }
 
