@@ -60,7 +60,8 @@ void RTree::insert(std::shared_ptr<Rectangle> r) {
     // TODO(keshav2)
 }
 
-std::vector<NodeEntry> RTree::search(std::shared_ptr<Rectangle> query) {
+std::vector<std::shared_ptr<NodeEntry>> RTree::search(
+                                            std::shared_ptr<Rectangle> query) {
     return RTreeHelper::search(query, root_);
 }
 

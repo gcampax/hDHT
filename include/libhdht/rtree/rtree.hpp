@@ -34,7 +34,8 @@ class RTree {
     RTree();
     ~RTree();
     void insert(std::shared_ptr<Rectangle> r);
-    std::vector<NodeEntry> search(std::shared_ptr<Rectangle> query);
+    std::vector<std::shared_ptr<NodeEntry>> search(
+                                             std::shared_ptr<Rectangle> query);
     
   private:
     Node* chooseLeaf(std::shared_ptr<HilbertValue> hv);

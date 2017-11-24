@@ -31,8 +31,8 @@ namespace libhdht {
 
 class RTreeHelper {
   public:
-    static std::vector<NodeEntry> search(std::shared_ptr<Rectangle> query,
-                                         Node* root);
+    static std::vector<std::shared_ptr<NodeEntry>> search(
+                                 std::shared_ptr<Rectangle> query, Node* root);
 
     static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
                             std::vector<Node*>& siblings);
