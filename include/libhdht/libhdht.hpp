@@ -26,17 +26,19 @@
 
 // public includes of the library
 #include "logging.hpp"
+#include "node_id.hpp"
 #include "net.hpp"
-#include "node.hpp"
-#include "client-node.hpp"
-#include "server-node.hpp"
-#include "dht.hpp"
+#include "uv.hpp"
 #include "server.hpp"
-#include "protocol.hpp"
 
 // do not include uv.hpp or rpc.hpp here, they are not public
 
 namespace libhdht {
+
+namespace protocol
+{
+const int DEFAULT_PORT = 7777;
+}
 
 void init();
 void fini();

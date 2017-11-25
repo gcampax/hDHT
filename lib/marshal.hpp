@@ -26,7 +26,7 @@
 #include <vector>
 #include <type_traits>
 
-#include "uv.hpp"
+#include <libhdht/uv.hpp>
 #include "rpc.hpp"
 
 namespace libhdht
@@ -67,11 +67,6 @@ public:
     {
         write(range.from());
         write(range.log_size());
-    }
-
-    void write(const net::Address& address)
-    {
-        write(address.to_string());
     }
 
     void write(const std::string& str)
@@ -140,13 +135,6 @@ BufferReader::read<std::string>()
     return str;
 }
 
-template<>
-inline net::Address
-BufferReader::read<net::Address>()
-{
-    return net::Address(read<std::string>());
-}
-
 namespace impl
 {
 
@@ -199,7 +187,8 @@ struct single_marshaller
 {};
 
 template<typename Type>
-struct single_marshaller<Type, typename std::enable_if<std::is_arithmetic<Type>::value>::type>
+struct single_marshaller<Type,
+    typename std::enable_if<std::is_arithmetic<Type>::value || std::is_enum<Type>::value>::type>
 {
     static void to_buffer(BufferWriter& writer, Type obj)
     {
@@ -212,45 +201,50 @@ struct single_marshaller<Type, typename std::enable_if<std::is_arithmetic<Type>:
     }
 };
 
-template<>
-struct single_marshaller<NodeID>
-{
-    static void to_buffer(BufferWriter& writer, const NodeID& obj)
-    {
-        writer.write(obj);
-    }
+#define MAKE_SIMPLE_MARSHALLER(type) \
+    template<>\
+    struct single_marshaller<type>\
+    {\
+        static void to_buffer(BufferWriter& writer, const type& obj)\
+        {\
+            writer.write(obj);\
+        }\
+        static type from_buffer(rpc::Peer& peer, BufferReader& reader)\
+        {\
+            return reader.read<type>();\
+        }\
+    };\
 
-    static NodeID from_buffer(rpc::Peer& peer, BufferReader& reader)
-    {
-        return reader.read<NodeID>();
-    }
-};
+MAKE_SIMPLE_MARSHALLER (NodeID)
+MAKE_SIMPLE_MARSHALLER (NodeIDRange)
+MAKE_SIMPLE_MARSHALLER (std::string)
 
 template<>
 struct single_marshaller<net::Address>
 {
     static void to_buffer(BufferWriter& writer, const net::Address& obj)
     {
-        writer.write(obj);
+        writer.write(obj.to_string());
     }
 
     static net::Address from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        return reader.read<net::Address>();
+        return net::Address(reader.read<std::string>());
     }
 };
 
 template<>
-struct single_marshaller<NodeIDRange>
+struct single_marshaller<GeoPoint2D>
 {
-    static void to_buffer(BufferWriter& writer, const NodeIDRange& obj)
+    static void to_buffer(BufferWriter& writer, const GeoPoint2D& obj)
     {
-        writer.write(obj);
+        writer.write(obj.latitude);
+        writer.write(obj.longitude);
     }
 
-    static NodeIDRange from_buffer(rpc::Peer& peer, BufferReader& reader)
+    static GeoPoint2D from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        return reader.read<NodeIDRange>();
+        return GeoPoint2D{ reader.read<double>(), reader.read<double>() };
     }
 };
 
@@ -273,6 +267,44 @@ public:
     static std::tuple<Args...> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
         return std::tuple<Args...>(single_marshaller<Args>::from_buffer(peer, reader)...);
+    }
+};
+
+template<typename First, typename Second>
+struct single_marshaller<std::pair<First, Second>>
+{
+    static void to_buffer(BufferWriter& writer, const std::pair<First, Second>& obj)
+    {
+        single_marshaller<First>::to_buffer(writer, obj.first);
+        single_marshaller<Second>::to_buffer(writer, obj.second);
+    }
+
+    static std::pair<First, Second> from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        return make_pair(single_marshaller<First>::from_buffer(peer, reader),
+            single_marshaller<Second>::from_buffer(peer, reader));
+    }
+};
+
+template<typename Key, typename Value>
+struct single_marshaller<std::unordered_map<Key, Value>>
+{
+    static void to_buffer(BufferWriter& writer, const std::unordered_map<Key, Value>& obj)
+    {
+        if (obj.size() > std::numeric_limits<uint8_t>::max())
+            throw std::length_error("Maps with more than 255 elements cannot be marshalled");
+        writer.write(static_cast<uint8_t>(obj.size()));
+        for (const auto& iter : obj)
+            single_marshaller<std::pair<Key, Value>>::to_buffer(writer, iter);
+    }
+
+    static std::unordered_map<Key, Value> from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        size_t n = reader.read<uint8_t>();
+        std::unordered_map<Key, Value> map;
+        for (size_t i = 0; i < n; i++)
+            map.insert(single_marshaller<std::pair<Key, Value>>::from_buffer(peer, reader));
+        return map;
     }
 };
 
@@ -361,31 +393,48 @@ struct proxy_invoker<void, Args...>  {
     }
 };
 
+// specialization for calls that return a tuple
+template<typename... Args, typename... ReturnArgs>
+struct proxy_invoker<std::tuple<ReturnArgs...>, Args...>  {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t object_id, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*, ReturnArgs...)>& callback) const {
+        BufferWriter writer;
+        pack_marshaller<typename convert_proxy_to_stub<Args>::type...>::to_buffer(writer, args...);
+        peer->invoke_request(opcode, object_id, writer.close(), [peer, callback](rpc::Error* error, const uv::Buffer* buffer) {
+            if (error) {
+                callback(error, ReturnArgs()...);
+            } else {
+                BufferReader reader(*buffer);
+                callback(nullptr, single_marshaller<ReturnArgs>::from_buffer(*peer, reader)...);
+            }
+        });
+    }
+};
+
 template<typename Return>
 struct reply_invoker {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id, const Return& args) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, const Return& args) const {
         BufferWriter writer;
         single_marshaller<Return>::to_buffer(writer, args);
-        peer->send_reply(opcode, request_id, writer.close());
+        peer->send_reply(request_id, writer.close());
     }
 };
 
 // specialization for calls that return void
 template<>
 struct reply_invoker<void> {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id) const {
         uv::Buffer buffer;
-        peer->send_reply(opcode, request_id, std::move(buffer));
+        peer->send_reply(request_id, std::move(buffer));
     }
 };
 
 // specialization for calls that return a tuple
 template<typename... Args>
 struct reply_invoker<std::tuple<Args...>> {
-    void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t request_id, const Args&... args) const {
+    void operator()(std::shared_ptr<rpc::Peer> peer, uint64_t request_id, const Args&... args) const {
         BufferWriter writer;
         pack_marshaller<Args...>::to_buffer(writer, args...);
-        peer->send_reply(opcode, request_id, writer.close());
+        peer->send_reply(request_id, writer.close());
     }
 };
 

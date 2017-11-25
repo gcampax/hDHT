@@ -26,26 +26,32 @@
 #include <unordered_set>
 
 #include "net.hpp"
-#include "server-node.hpp"
-#include "client-node.hpp"
-#include "dht.hpp"
 #include "uv.hpp"
-#include "rpc.hpp"
 
-namespace libhdht {
+namespace libhdht
+{
+
+// forward declarations of private classes
+class ServerMasterImpl;
+class Table;
+namespace rpc
+{
+    class Context;
+}
 
 // The context for a single server instance of libhdht
 class ServerContext
 {
+    friend class ServerMasterImpl;
+
 private:
-    rpc::Context m_rpc;
-    Table m_table;
-    std::vector<ServerNode*> m_server_nodes;
+    std::unique_ptr<rpc::Context> m_rpc;
     std::vector<net::Address> m_peers;
+    std::unique_ptr<Table> m_table;
 
 public:
     ServerContext(uv::Loop& loop);
-    ~ServerContext() {}
+    ~ServerContext();
 
     // expose this server on this address
     void add_address(const net::Address& address);

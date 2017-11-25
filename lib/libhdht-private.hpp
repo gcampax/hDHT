@@ -18,38 +18,10 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "libhdht-private.hpp"
+#pragma once
 
-#include <cmath>
+#include "../include/libhdht/libhdht.hpp"
 
-namespace libhdht {
-
-static inline double
-to_radians(double deg) {
-    return deg * M_PI / 180.0;
-}
-
-double
-GeoPoint2D::distance(GeoPoint2D& one, GeoPoint2D& two)
-{
-    const double R = 6371000; // meters
-    double lat1 = one.latitude;
-    double lat2 = two.latitude;
-    double lon1 = one.longitude;
-    double lon2 = two.longitude;
-
-    // formula courtesy of http://www.movable-type.co.uk/scripts/latlong.html
-    double phi1 = to_radians(lat1);
-    double phi2 = to_radians(lat2);
-    double deltaphi = to_radians(lat2-lat1);
-    double deltalambda = to_radians(lon2-lon1);
-
-    double x = std::sin(deltaphi/2) * std::sin(deltaphi/2) +
-            std::cos(phi1) * std::cos(phi2) *
-            std::sin(deltalambda/2) * std::sin(deltalambda/2);
-    double c = 2 * std::atan2(std::sqrt(x), std::sqrt(1-x));
-
-    return R * c;
-}
-
-}
+#include "rpc.hpp"
+#include "protocol.hpp"
+#include "dht.hpp"

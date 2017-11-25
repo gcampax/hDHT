@@ -18,7 +18,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#include "libhdht-private.hpp"
 
 #include <cctype>
 #include <exception>
@@ -68,5 +68,37 @@ NodeID::to_point() const
     return GeoPoint2D{ 0, 0 };
 }
 
+bool
+NodeIDRange::contains(const NodeIDRange &subrange) const
+{
+    if (m_log_size > subrange.m_log_size)
+        return false;
+
+    return contains(subrange.m_from);
+}
+
+// returns a bit mask that has the highest num_bits set
+static uint8_t high_bit_mask(size_t num_bits)
+{
+    uint8_t low_bits = ((1 << num_bits)-1) & 0xFF;
+    return ~low_bits;
+}
+
+bool
+NodeIDRange::contains(const NodeID & node) const
+{
+    size_t i;
+    for (i = 0; i < m_log_size / 8; i++) {
+        if (m_from.m_parts[i] != node.m_parts[i])
+            return false;
+    }
+
+    if (i * 8 < m_log_size) {
+        uint8_t mask = high_bit_mask(m_log_size - i * 8);
+        if ((m_from.m_parts[i] & mask) != (node.m_parts[i] & mask))
+            return false;
+    }
+    return true;
+}
 
 }

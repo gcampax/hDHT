@@ -24,10 +24,9 @@
 #include <algorithm>
 #include <map>
 #include <cassert>
+#include <list>
 
 #include "node.hpp"
-#include "client-node.hpp"
-#include "server-node.hpp"
 
 namespace libhdht {
 
@@ -35,9 +34,17 @@ namespace libhdht {
 // for freeing them
 class Table
 {
-    std::map<NodeID, Node*> m_known_nodes;
-
     uint8_t m_resolution;
+    // all the different chunks in the DHT
+    // Initially, the whole DHT is owned by the local server
+    // As the server discovers more peers it will split the ranges more
+    // and more finely
+    std::list<ServerNode*> m_ranges;
+    // the chunks in the DHT owned locally
+    std::list<ServerNode*> m_local_ranges;
+
+    // the currently connected clients, indexed by their node ID
+    std::map<NodeID, ClientNode*> m_clients;
 
 public:
     Table(uint8_t resolution)
@@ -66,12 +73,20 @@ public:
         return NodeID(pt, m_resolution);
     }
 
-    Node *get_existing_node(const NodeID&) const;
-    LocalClientNode *get_or_create_local_client_node(const NodeID&);
-    LocalServerNode *get_or_create_local_server_node(const NodeID&);
+    // Client management
+    ClientNode *get_or_create_client_node(const GeoPoint2D& pt);
+    ClientNode *get_or_create_client_node(const NodeID& id);
+    bool move_client(ClientNode *, const GeoPoint2D&, RemoteServerNode*&);
+    void forget_client(ClientNode *);
 
-    RemoteServerNode *get_or_create_remote_server_node(const NodeID&);
-    RemoteClientNode *get_or_create_remote_client_node(const NodeID&);
+    // Server (range) management
+    void add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol::ServerProxy> proxy);
+    void add_local_server_node(const NodeIDRange& range);
+    void find_controlling_server(const NodeID& id, ServerNode*&, NodeIDRange& range) const;
+
+    // perform any load balancing by splitting any local range
+    void load_balance(void (*)(const NodeIDRange&));
+
 };
 
 }

@@ -48,20 +48,44 @@ begin_class(Server)
     // client_hello: a client contacts a server to bootstrap the protocol
     // the client must be listening on the given address and export a Client object at
     // object id 1
-    request(void, client_hello, net::Address)
+    // the passed point is the initial location of the client
+    // returns true if the client was successfully registered with this server, false
+    // if the client needs to go and find the server responsible for this client (calling
+    // find_controlling_server) and register again
+    request(BoolAndNodeID, client_hello, net::Address, GeoPoint2D)
 
-    // control_range: start anserwing requests for this NodeIDRange
-    // this is called by a server
+    // add_remote_range: learn about this range, owned by another server (either the responding
+    // one or a third party)
+    // this is called by a server to a new server as part of onboarding
+    request(void, add_remote_range, NodeIDRange, net::Address)
+
+    // control_range: become the controlling server for this range
+    // this is called by a server to a new server as part of onboarding, or as part of load
+    // balancing
     request(void, control_range, NodeIDRange)
+
+    // adopt_client: adopt a client that was already registered
+    // this is called by a server to a new server immediately after transferring control
+    // of a range
+    request(void, adopt_client, NodeID, net::Address, MetadataType)
 
     // find_controlling_server: find the address of the server that controls the
     // range containing this NodeID
-    // this is called by a client or a server
-    request(net::Address, find_controlling_server, NodeID)
+    // returns the address of the server and the range (which a server would use
+    // to refine its own DHT)
+    // this is called by a client or server
+    request(AddressAndRange, find_controlling_server, NodeID)
 
     // set the physical location of the calling client
     // this is called by a client only
-    request(void, set_location, double, double)
+    // the request returns whether if the client is still controlled by the same server
+    // if the request fails the client should assume to be in a limbo state and start the
+    // registration process from scratch
+    request(SetLocationResult, set_location, GeoPoint2D)
+
+    // set the physical location of the calling client
+    // this is called by a client only
+    request(void, set_metadata, std::string, std::string)
 
     request(net::Address, find_client_address, NodeID)
 

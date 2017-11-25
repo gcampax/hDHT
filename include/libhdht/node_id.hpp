@@ -28,13 +28,16 @@
 #include <cassert>
 
 #include "geo.hpp"
-#include "net.hpp"
 
-namespace libhdht {
+namespace libhdht
+{
+
+class NodeIDRange;
 
 class NodeID
 {
 public:
+    friend class NodeIDRange;
     static const size_t size = 20;
 
 private:
@@ -73,6 +76,8 @@ private:
     NodeID m_from;
     uint8_t m_log_size;
 public:
+    NodeIDRange() : m_from(), m_log_size(0)
+    {}
     NodeIDRange(const NodeID& from, uint8_t log_size) : m_from(from), m_log_size(log_size)
     {
         assert(log_size <= 8*NodeID::size);
@@ -88,38 +93,7 @@ public:
     }
 
     bool contains(const NodeID&) const;
-};
-
-// Any node in the DHT, either a client or a server
-class Node
-{
-    NodeID m_node_id;
-    net::Address m_address;
-
-public:
-    Node(const NodeID& id) : m_node_id(id) {}
-    virtual ~Node() {}
-
-    GeoPoint2D get_coordinates() const
-    {
-        return m_node_id.to_point();
-    }
-    const NodeID& get_node_id() const
-    {
-        return m_node_id;
-    }
-
-    virtual bool is_client() const = 0;
-    virtual bool is_local() const = 0;
-
-    const net::Address& get_address() const
-    {
-        return m_address;
-    }
-    void set_address(const net::Address& address)
-    {
-        m_address = address;
-    }
+    bool contains(const NodeIDRange&) const;
 };
 
 }

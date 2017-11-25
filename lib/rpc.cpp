@@ -18,8 +18,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
-#include <libhdht/rpc.hpp>
+#include "libhdht-private.hpp"
 
 #include <endian.h>
 #include <deque>
@@ -162,11 +161,9 @@ public:
                        uint64_t request_id,
                        uint64_t object_id,
                        const uv::Buffer& buffer);
-    void write_error(uint16_t opcode,
-                     uint64_t request_id,
+    void write_error(uint64_t request_id,
                      RemoteError error);
-    void write_reply(uint16_t opcode,
-                     uint64_t request_id,
+    void write_reply(uint64_t request_id,
                      const uv::Buffer& payload);
 
     virtual void connected(uv::Error err) override;
@@ -382,13 +379,12 @@ Connection::write_request(uint16_t opcode,
 }
 
 void
-Connection::write_reply(uint16_t opcode,
-                        uint64_t request_id,
+Connection::write_reply(uint64_t request_id,
                         const uv::Buffer& payload)
 {
     BufferWriter header;
     header.reserve(sizeof(protocol::BaseResponse));
-    header.write(opcode);
+    header.write(protocol::REPLY_FLAG);
     header.write(request_id);
     header.write(static_cast<uint32_t>(0) /* error code */);
     assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
@@ -399,13 +395,12 @@ Connection::write_reply(uint16_t opcode,
 }
 
 void
-Connection::write_error(uint16_t opcode,
-                        uint64_t request_id,
+Connection::write_error(uint64_t request_id,
                         RemoteError error)
 {
     BufferWriter header;
     header.reserve(sizeof(protocol::BaseResponse));
-    header.write(opcode);
+    header.write(protocol::REPLY_FLAG);
     header.write(request_id);
     header.write(error.code());
     header.write(static_cast<uint16_t>(0));
@@ -492,8 +487,7 @@ Peer::invoke_request(uint16_t opcode,
 }
 
 void
-Peer::send_error(uint16_t opcode,
-                 uint64_t request_id,
+Peer::send_error(uint64_t request_id,
                  RemoteError error)
 {
     OutstandingRequest& req = queue_request(request_id | (1ULL<<63), error, uv::Buffer(), nullptr);
@@ -503,21 +497,19 @@ Peer::send_error(uint16_t opcode,
         return;
     }
 
-    connection->write_error(opcode, request_id, req.error);
+    connection->write_error(request_id, req.error);
 }
 
 void
-Peer::send_fatal_error(uint16_t opcode,
-                       uint64_t request_id,
+Peer::send_fatal_error(uint64_t request_id,
                        RemoteError error)
 {
-    send_error(opcode, request_id, error);
+    send_error(request_id, error);
     close_all_connections();
 }
 
 void
-Peer::send_reply(uint16_t opcode,
-                 uint64_t request_id,
+Peer::send_reply(uint64_t request_id,
                  uv::Buffer&& reply)
 {
     OutstandingRequest& req = queue_request(request_id | (1ULL<<63), 0, std::move(reply), nullptr);
@@ -527,7 +519,7 @@ Peer::send_reply(uint16_t opcode,
         return;
     }
 
-    connection->write_reply(opcode, request_id, req.payload);
+    connection->write_reply(request_id, req.payload);
 }
 
 void
@@ -537,7 +529,7 @@ Peer::request_received(uint16_t opcode, uint64_t object_id, uint64_t request_id,
 
     if (it == m_stubs.end()) {
         log(LOG_ERR, "Invalid object id %lu in incoming %s request", object_id, ::libhdht::protocol::get_request_name(opcode));
-        send_fatal_error(opcode, object_id, EINVAL);
+        send_fatal_error(object_id, EINVAL);
         return;
     }
 

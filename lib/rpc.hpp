@@ -26,9 +26,10 @@
 #include <vector>
 #include <cassert>
 #include <limits>
+#include <unordered_map>
 
-#include "net.hpp"
-#include "uv.hpp"
+#include <libhdht/net.hpp>
+#include <libhdht/uv.hpp>
 
 // mini rpc library
 
@@ -208,14 +209,11 @@ public:
                         uint64_t object_id,
                         uv::Buffer&& request,
                         const std::function<void(Error*, const uv::Buffer*)>&);
-    void send_error(uint16_t opcode,
-                    uint64_t request_id,
+    void send_error(uint64_t request_id,
                     rpc::RemoteError error);
-    void send_fatal_error(uint16_t opcode,
-                          uint64_t request_id,
+    void send_fatal_error(uint64_t request_id,
                           rpc::RemoteError error);
-    void send_reply(uint16_t opcode,
-                    uint64_t request_id,
+    void send_reply(uint64_t request_id,
                     uv::Buffer&& reply);
 };
 
@@ -255,23 +253,23 @@ protected:
     {
         return m_peer.lock();
     }
-    void reply_error(uint16_t opcode, uint64_t request_id, rpc::RemoteError error)
+    void reply_error(uint64_t request_id, rpc::RemoteError error)
     {
         std::shared_ptr<Peer> peer = get_peer();
         if (!peer) {
             log(LOG_ERR, "Error reply dropped (peer was garbage collected)");
             return;
         }
-        peer->send_error(opcode, request_id, error);
+        peer->send_error(request_id, error);
     }
-    void reply_fatal_error(uint16_t opcode, uint64_t request_id, rpc::RemoteError error)
+    void reply_fatal_error(uint64_t request_id, rpc::RemoteError error)
     {
         std::shared_ptr<Peer> peer = get_peer();
         if (!peer) {
             log(LOG_ERR, "Error reply dropped (peer was garbage collected)");
             return;
         }
-        peer->send_fatal_error(opcode, request_id, error);
+        peer->send_fatal_error(request_id, error);
     }
 
 public:
@@ -311,6 +309,10 @@ public:
     void add_address(const net::Address& address);
     net::Address get_listening_address() const;
 
+    bool has_peer(const net::Address& address) const
+    {
+        return m_known_peers.find(address) != m_known_peers.end();
+    }
     std::shared_ptr<Peer> get_peer(const net::Address& address, AddressType type = AddressType::Static);
 
     void remove_peer_address(std::shared_ptr<Peer> peer, const net::Address& address);

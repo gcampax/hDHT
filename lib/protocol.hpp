@@ -34,8 +34,17 @@ namespace libhdht
 namespace protocol
 {
 
-static const int DEFAULT_PORT = 7777;
 static const int MASTER_OBJECT_ID = 1;
+
+typedef std::tuple<net::Address, NodeIDRange> AddressAndRange;
+typedef std::tuple<bool, NodeID> BoolAndNodeID;
+typedef std::unordered_map<std::string, std::string> MetadataType;
+
+enum class SetLocationResult : uint8_t
+{
+    SameServer,
+    DifferentServer
+};
 
 // Step 1: forward declare all classes
 
@@ -102,7 +111,7 @@ protected:\
             return;\
         }\
         rpc::impl::reply_invoker<return_type> invoker; \
-        invoker(peer, (uint16_t)Opcode::opcode, request_id, std::forward<Args>(args)...); \
+        invoker(peer, request_id, std::forward<Args>(args)...); \
     }
 #include "protocol.inc.hpp"
 #undef request

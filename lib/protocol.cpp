@@ -18,7 +18,7 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#include "libhdht-private.hpp"
 
 namespace libhdht {
 
@@ -29,7 +29,7 @@ static const char* request_name_table[] = {
 #define begin_class(name)
 #define end_class
 #define request(return_type, opcode, ...) #opcode
-#include <libhdht/protocol.inc.hpp>
+#include "protocol.inc.hpp"
     , nullptr /* max_opcode */
 #undef request
 #undef end_class
@@ -54,13 +54,13 @@ void dispatch_helper2(Type* object, Callback callback, uint64_t request_id, Tupl
 template<typename Type, typename Callback, typename... Args>
 void dispatch_helper(Type* object, Callback callback, uint64_t request_id, std::tuple<Args...>&& args)
 {
-    dispatch_helper2(object, callback, request_id, args, std::index_sequence_for<Args...>());
+    dispatch_helper2(object, callback, request_id, std::move(args), std::index_sequence_for<Args...>());
 }
 
 template<typename Type, typename Callback, typename SingleArg>
 void dispatch_helper(Type* object, Callback callback, uint64_t request_id, SingleArg&& arg)
 {
-    (object->*callback)(request_id, arg);
+    (object->*callback)(request_id, std::move(arg));
 }
 
 }
@@ -78,7 +78,7 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
 #define end_class \
         default:\
             log(LOG_ERR, "Invalid request %d", opcode); \
-            reply_fatal_error(opcode, request_id, ENOSYS);\
+            reply_fatal_error(request_id, ENOSYS);\
         } /* close switch */ \
     } /* close method */
 #define request(return_type, opcode, ...) \
@@ -86,13 +86,13 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
         try {\
             impl::dispatch_helper(this, &stub_type::handle_##opcode, request_id, rpc::impl::pack_marshaller<__VA_ARGS__>::from_buffer(*peer, reader));\
         } catch(rpc::RemoteError e) { \
-            reply_error((uint16_t)(Opcode::opcode), request_id, e);\
+            reply_error(request_id, e);\
         } catch(rpc::ReadError e) {\
             log(LOG_ERR, "Failed to demarshal incoming request");\
-            reply_fatal_error((uint16_t)(Opcode::opcode), request_id, EINVAL);\
+            reply_fatal_error(request_id, EINVAL);\
         }\
         break;
-#include <libhdht/protocol.inc.hpp>
+#include "protocol.inc.hpp"
 #undef request
 #undef end_class
 #undef begin_class
