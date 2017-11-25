@@ -197,7 +197,11 @@ ClientContext::do_register()
             return;
         }
 
+        m_node_id = node_id;
+        m_is_registered = true;
+
         if (!m_was_registered || result == protocol::ClientRegistrationResult::ClientCreated) {
+            m_was_registered = true;
             m_must_set_location = false;
             continue_registration();
         } else {
@@ -214,7 +218,6 @@ ClientContext::do_register()
 void
 ClientContext::continue_registration()
 {
-    do_set_location();
     flush_metadata_changes(MetadataFlushMode::Everything);
 }
 

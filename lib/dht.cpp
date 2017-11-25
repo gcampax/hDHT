@@ -68,6 +68,8 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
     // wholly contains the existing node, and part of the successors
     // there are not other cases because ranges are power of two sized
 
+    log(LOG_DEBUG, "Adding remote range %s from peer %s", range.to_string().c_str(),
+        proxy->get_address().to_string().c_str());
     auto it = m_ranges.lower_bound(range.from());
 
     const NodeIDRange* current_range = &it->second->get_range();
@@ -109,6 +111,8 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
         // we either got to the end of the table, or got to the end of range, insert the new node and be done
         m_ranges.insert(std::make_pair(range.from(), new_node));
     } else {
+        log(LOG_DEBUG, "Found existing covering range %s", current_range->to_string().c_str());
+
         // we need to split current_range
         assert(current_range->contains(range));
         // if the two masks are equal, then current_range and range are the same
@@ -116,12 +120,15 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
         assert(current_range->mask() < range.mask());
         ServerNode *current_node = it->second;
 
-        if (current_node->is_local())
+        if (current_node->is_local()) {
+            log(LOG_DEBUG, "The current range is local, refusing to overwrite");
             return false;
+        }
 
         for (uint8_t i = current_range->mask(); i < range.mask(); i++) {
             assert(!current_range->from().bit_at(i));
 
+            log(LOG_DEBUG, "Splitting range %s at bit %u", current_range->to_string().c_str(), i);
             ServerNode* from_split = it->second->split();
             try {
                 auto insert_result = m_ranges.insert(std::make_pair(from_split->get_range().from(), from_split));
@@ -146,6 +153,7 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
         assert(!current_node->is_local());
 
         // replace the RemoteServerNode with a local one
+        log(LOG_DEBUG, "Replacing remote range");
         RemoteServerNode *new_node = new RemoteServerNode(range, proxy);
         delete current_node;
         it->second = new_node;
@@ -155,20 +163,25 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
 }
 
 void
-Table::add_local_server_node(const NodeIDRange& range)
+Table::add_local_server_node(const NodeIDRange& range, LocalServerNode *previous)
 {
     // there are two possibilities here: either the range
     // is wholly contained in an existing range, or the range
     // wholly contains the existing node, and part of the successors
     // there are not other cases because ranges are power of two sized
 
+    log(LOG_DEBUG, "Adding local range %s", range.to_string().c_str());
     auto it = m_ranges.lower_bound(range.from());
 
     const NodeIDRange* current_range = &it->second->get_range();
     assert(current_range->from() == it->first);
 
     if (range.contains(*current_range)) {
-        LocalServerNode *new_node = new LocalServerNode(range);
+        LocalServerNode *new_node;
+        if (previous == nullptr)
+            new_node = new LocalServerNode(range);
+        else
+            new_node = previous;
 
         do {
             auto next = it;
@@ -198,6 +211,8 @@ Table::add_local_server_node(const NodeIDRange& range)
     } else {
         // we need to split current_range
         assert(current_range->contains(range));
+        log(LOG_DEBUG, "Found existing covering range %s", current_range->to_string().c_str());
+
         // if the two masks are equal, then current_range and range are the same
         // because current_range.from() <= range.from() and there are no holes
         assert(current_range->mask() < range.mask());
@@ -206,17 +221,23 @@ Table::add_local_server_node(const NodeIDRange& range)
         for (uint8_t i = current_range->mask(); i < range.mask(); i++) {
             assert(!current_range->from().bit_at(i));
 
+            log(LOG_DEBUG, "Splitting range %s at bit %u", current_range->to_string().c_str(), i);
             ServerNode* from_split = it->second->split();
-            auto insert_result = m_ranges.insert(std::make_pair(from_split->get_range().from(), from_split));
+            try {
+                auto insert_result = m_ranges.insert(std::make_pair(from_split->get_range().from(), from_split));
 
-            if (range.from().bit_at(i)) {
-                // keep the existing node at the bottom, go on and split the one
-                // at the top
-                current_node = from_split;
-                current_range = &from_split->get_range();
-                it = insert_result.first;
-            } else {
-                // current_node, current_range and it stay the same
+                if (range.from().bit_at(i)) {
+                    // keep the existing node at the bottom, go on and split the one
+                    // at the top
+                    current_node = from_split;
+                    current_range = &from_split->get_range();
+                    it = insert_result.first;
+                } else {
+                    // current_node, current_range and it stay the same
+                }
+            } catch(const std::bad_alloc& e) {
+                delete from_split;
+                throw;
             }
         }
 
@@ -224,11 +245,25 @@ Table::add_local_server_node(const NodeIDRange& range)
         assert(current_range->from() == range.from());
 
         if (current_node->is_local()) {
-            // nothing to do! LocalServerNode::split() already took care of putting
-            // the clients in the right place
+            log(LOG_DEBUG, "Found existing local range");
+
+            if (previous == nullptr) {
+                // nothing to do! LocalServerNode::split() already took care of putting
+                // the clients in the right place
+            } else {
+                // move over the client nodes from the server node we were supposed to
+                // add to the current one
+                static_cast<LocalServerNode*>(current_node)->adopt_nodes(previous);
+                delete previous;
+            }
         } else {
+            log(LOG_DEBUG, "Replacing remote range");
             // replace the RemoteServerNode with a local one
-            ServerNode *new_node = new LocalServerNode(range);
+            ServerNode *new_node;
+            if (previous == nullptr)
+                new_node = new LocalServerNode(range);
+            else
+                new_node = previous;
             delete current_node;
             it->second = new_node;
         }
@@ -303,6 +338,12 @@ Table::forget_client(ClientNode* node)
 }
 
 void
+Table::forget_server(ServerNode* node)
+{
+    delete node;
+}
+
+void
 Table::debug_dump_table() const
 {
     log(LOG_DEBUG, "--- begin table dump ---");
@@ -332,6 +373,99 @@ Table::debug_dump_table() const
     }
 
     log(LOG_DEBUG, "--- end table dump ---");
+}
+
+const int LOAD_THRESHOLD = 5000;
+
+void
+Table::load_balance_with_peer(std::shared_ptr<protocol::ServerProxy> proxy, std::function<void(LoadBalanceAction, ServerNode*)> callback)
+{
+    for (auto it = m_ranges.begin(); it != m_ranges.end(); it++) {
+        ServerNode *server = it->second;
+        if (server->is_local()) {
+            LocalServerNode *local_server = static_cast<LocalServerNode*>(server);
+
+            // Load balancing algorithm: if the range is bigger than resolution/2 (log size)
+            // we always split it
+            // keep the first half, send the second half
+            if (local_server->get_range().mask() < m_resolution/2) {
+                LocalServerNode *from_split = local_server->split();
+                RemoteServerNode *replacement = new RemoteServerNode(from_split->get_range(), proxy);
+
+                auto insert_result = m_ranges.insert(std::make_pair(replacement->get_range().from(), replacement));
+                it = insert_result.first;
+                callback(LoadBalanceAction::InformPeer, local_server);
+                callback(LoadBalanceAction::RelinquishRange, from_split);
+            } else {
+                // if not, we check the load on the range: if bigger than a threshold, we split the
+                // node
+                // we keep splitting the bigger node until we go below the threshold or the table
+                // is roughly balanced, and then we shed the smaller one
+                LocalServerNode *iter, *bigger, *smaller;
+                iter = local_server;
+
+                bool inform_server = true;
+                while (iter->load() > LOAD_THRESHOLD) {
+                    inform_server = false;
+                    LocalServerNode *from_split = local_server->split();
+                    if (iter->load() >= from_split->load()) {
+                        bigger = iter;
+                        smaller = from_split;
+                    } else {
+                        bigger = from_split;
+                        smaller = iter;
+                    }
+
+                    if (bigger->load() <= 2*smaller->load() || bigger->load() <= LOAD_THRESHOLD) {
+                        // table is roughly balanced
+                        if (smaller == from_split) {
+                            // replace the "would be" from split with a remote server node and relinquish
+                            // the local one
+                            RemoteServerNode *replacement = new RemoteServerNode(from_split->get_range(), proxy);
+
+                            auto insert_result = m_ranges.insert(std::make_pair(replacement->get_range().from(), replacement));
+                            it = insert_result.first;
+                            callback(LoadBalanceAction::InformPeer, bigger);
+                            callback(LoadBalanceAction::RelinquishRange, smaller);
+                        } else {
+                            // put the local node we just created from splitting in the table
+                            auto insert_result = m_ranges.insert(std::make_pair(from_split->get_range().from(), from_split));
+                            // and replace the node we're about to relinquish
+                            RemoteServerNode *replacement = new RemoteServerNode(iter->get_range(), proxy);
+                            it->second = replacement;
+                            it = insert_result.first;
+                            callback(LoadBalanceAction::InformPeer, bigger);
+                            callback(LoadBalanceAction::RelinquishRange, smaller);
+                        }
+                    } else {
+                        // must keep splitting
+                        // put the local node we just created from splitting in the table
+                        auto insert_result = m_ranges.insert(std::make_pair(from_split->get_range().from(), from_split));
+                        if (bigger == from_split) {
+                            it = insert_result.first;
+                            // we'll keep splitting bigger, but smaller is before bigger and we're skipping
+                            // it entirely, so we let the other peer know about it
+                            callback(LoadBalanceAction::InformPeer, smaller);
+                        } else {
+                            // otherwise bigger is before smaller, we'll touch smaller when continue
+                            // walking the table
+                        }
+                        iter = bigger;
+                        assert(it->second == iter);
+                    }
+                }
+
+                // if we never did any split, just inform the other peer about this
+                if (inform_server)
+                    callback(LoadBalanceAction::InformPeer, iter);
+            }
+        } else {
+            // if the node is already remote, there is nothing we can do about it
+            // when the peer learns about this node and registers with the correct server,
+            // the other server will perform load balancing if needed
+            callback(LoadBalanceAction::InformPeer, server);
+        }
+    }
 }
 
 }

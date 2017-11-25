@@ -186,22 +186,27 @@ public:
             m_ctx.set_local_metadata(key, value);
         } else if (command == "show-metadata") {
             std::string key;
+            parser >> key;
             cout << key << " = " << m_ctx.get_local_metadata(key) << endl;
         } else if (command == "show-server") {
             cout << "Current Server: " << m_ctx.get_current_server().to_string() << endl;
         } else if (command == "get-metadata") {
-            std::string node_id, key;
-            parser >> node_id >> key;
-            m_reading = false;
-            stop_reading();
-            m_ctx.get_remote_metadata(node_id, key, [this, key](rpc::Error *err, const std::string* value) {
-                if (err)
-                    cout << "Failed: " << err->what() << endl;
-                else
-                    cout << key << " = " << *value << endl;
-                prompt();
-            });
-            return;
+            try {
+                std::string node_id, key;
+                parser >> node_id >> key;
+                m_reading = false;
+                stop_reading();
+                m_ctx.get_remote_metadata(node_id, key, [this, key](rpc::Error *err, const std::string* value) {
+                    if (err)
+                        cout << "Failed: " << err->what() << endl;
+                    else
+                        cout << key << " = " << *value << endl;
+                    prompt();
+                });
+                return;
+            } catch(const std::invalid_argument& e) {
+                cout << "Invalid argument" << endl;
+            }
         } else if (command == "quit") {
             cout << "Bye" << endl;
             m_event_loop.stop();

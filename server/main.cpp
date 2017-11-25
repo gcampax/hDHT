@@ -36,6 +36,9 @@ static int debug_logger(int priority, const char *msg, va_list va)
     return 0;
 }
 
+// 4 billion points in the grid
+static const int DEFAULT_RESOLUTION = 32;
+
 struct Options
 {
     net::Address own_address;
@@ -103,7 +106,7 @@ int main(int argc, char* const* argv)
     {
         libhdht::uv::Loop event_loop;
 
-        ServerContext ctx(event_loop);
+        ServerContext ctx(event_loop, DEFAULT_RESOLUTION);
         try {
             ctx.add_address(opts.own_address);
             for (auto& peer : opts.known_peers) {

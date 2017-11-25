@@ -152,7 +152,9 @@ struct pack_marshaller<First, Rest...> {
 
     static std::tuple<First, Rest...> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        return std::tuple<First, Rest...>(pack_marshaller<First>::from_buffer(peer, reader), pack_marshaller<Rest>::from_buffer(peer, reader)...);
+        First first = pack_marshaller<First>::from_buffer(peer, reader);
+        std::tuple<Rest...> rest = pack_marshaller<Rest...>::from_buffer(peer, reader);
+        return std::tuple_cat(std::make_tuple(std::move(first)), std::move(rest));
     }
 };
 
@@ -163,9 +165,10 @@ struct pack_marshaller<> {
         // nothing to do
     }
 
-    static void from_buffer(rpc::Peer& peer, BufferReader& reader)
+    static std::tuple<> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
         // nothing to do
+        return std::tuple<>();
     }
 };
 
@@ -266,7 +269,7 @@ public:
 
     static std::tuple<Args...> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        return std::tuple<Args...>(single_marshaller<Args>::from_buffer(peer, reader)...);
+        return pack_marshaller<Args...>::from_buffer(peer, reader);
     }
 };
 
@@ -281,8 +284,9 @@ struct single_marshaller<std::pair<First, Second>>
 
     static std::pair<First, Second> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        return make_pair(single_marshaller<First>::from_buffer(peer, reader),
-            single_marshaller<Second>::from_buffer(peer, reader));
+        First first = single_marshaller<First>::from_buffer(peer, reader);
+        Second second = single_marshaller<Second>::from_buffer(peer, reader);
+        return make_pair(std::move(first), std::move(second));
     }
 };
 
@@ -396,6 +400,14 @@ struct proxy_invoker<void, Args...>  {
 // specialization for calls that return a tuple
 template<typename... Args, typename... ReturnArgs>
 struct proxy_invoker<std::tuple<ReturnArgs...>, Args...>  {
+private:
+    template<typename Callback, class Tuple, std::size_t... I>
+    static void helper(Callback&& callback, Tuple&& tuple, std::index_sequence<I...>)
+    {
+        callback(nullptr, std::get<I>(std::forward<Tuple>(tuple))...);
+    }
+
+public:
     void operator()(std::shared_ptr<rpc::Peer> peer, uint16_t opcode, uint64_t object_id, const typename convert_proxy_to_stub<Args>::type&... args, const std::function<void(rpc::Error*, ReturnArgs...)>& callback) const {
         BufferWriter writer;
         pack_marshaller<typename convert_proxy_to_stub<Args>::type...>::to_buffer(writer, args...);
@@ -404,7 +416,8 @@ struct proxy_invoker<std::tuple<ReturnArgs...>, Args...>  {
                 callback(error, ReturnArgs()...);
             } else {
                 BufferReader reader(*buffer);
-                callback(nullptr, single_marshaller<ReturnArgs>::from_buffer(*peer, reader)...);
+                auto tuple = pack_marshaller<ReturnArgs...>::from_buffer(*peer, reader);
+                helper(std::move(callback), std::move(tuple), std::index_sequence_for<ReturnArgs...>());
             }
         });
     }

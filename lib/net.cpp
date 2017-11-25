@@ -31,7 +31,7 @@ namespace net
 
 Address::Address(const std::string& str)
 {
-    if (str.empty()) {
+    if (str.empty() || str == "(invalid)") {
         memset(&m_address, 0, sizeof(m_address));
         return;
     }
@@ -77,7 +77,7 @@ std::string
 Address::to_string() const
 {
     if (!is_valid())
-        return std::string();
+        return "(invalid)";
 
     // address + [] + port + null terminator
     char buffer[INET6_ADDRSTRLEN + 2 + 5 + 1];

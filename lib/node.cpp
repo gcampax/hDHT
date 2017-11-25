@@ -48,7 +48,7 @@ NodeID::NodeID(const std::string& str)
         char c1 = str[i*2];
         char c2 = str[i*2+1];
 
-        if (!std::isxdigit(c1) || std::isxdigit(c2))
+        if (!std::isxdigit(c1) || !std::isxdigit(c2))
             throw std::invalid_argument("Invalid node ID");
 
         m_parts[i] = hex_to_int(c1) << 4 | hex_to_int(c2);
@@ -72,11 +72,13 @@ bool
 NodeID::has_mask(uint8_t mask) const
 {
     assert(mask <= NodeID::size * 8);
+    if (mask == NodeID::size * 8)
+        return true;
 
     size_t i0 = mask / 8;
     size_t first_bit = mask % 8;
-    uint8_t low_bits = ((1 << first_bit)-1) & 0xFF;
-    if ((m_parts[i0] & low_bits) != 0)
+    uint8_t low_bits = ((1 << (first_bit))-1) & 0xFF;
+    if ((m_parts[i0] & ~low_bits) != 0)
         return false;
 
     for (size_t i = i0 + 1; i < NodeID::size; i++) {
@@ -91,8 +93,14 @@ std::string
 NodeID::to_string() const
 {
     std::string buffer;
+    /*
     buffer.resize(8*NodeID::size);
     for (size_t i = 0; i < 8*NodeID::size; i++)
+        buffer[i] = bit_at(i) ? '1' : '0';
+    */
+    // only print the first 32 bits
+    buffer.resize(32);
+    for (size_t i = 0; i < 32; i++)
         buffer[i] = bit_at(i) ? '1' : '0';
 
     return buffer;
@@ -107,11 +115,11 @@ NodeIDRange::contains(const NodeIDRange &subrange) const
     return contains(subrange.m_from);
 }
 
-// returns a bit mask that has the highest num_bits set
-static uint8_t high_bit_mask(size_t num_bits)
+// returns a bit mask that has the lowest num_bits set
+static uint8_t low_bit_mask(size_t num_bits)
 {
     uint8_t low_bits = ((1 << num_bits)-1) & 0xFF;
-    return ~low_bits;
+    return low_bits;
 }
 
 bool
@@ -124,7 +132,7 @@ NodeIDRange::contains(const NodeID & node) const
     }
 
     if (i * 8 < m_mask) {
-        uint8_t mask = high_bit_mask(m_mask - i * 8);
+        uint8_t mask = low_bit_mask(m_mask - i * 8);
         if ((m_from.m_parts[i] & mask) != (node.m_parts[i] & mask))
             return false;
     }
@@ -141,7 +149,8 @@ std::string
 NodeIDRange::to_string() const
 {
     NodeID to = m_from;
-    to.set_bit_at(m_mask, 1);
+    for (uint8_t i = m_mask; i < NodeID::size*8; i++)
+        to.set_bit_at(i, 1);
 
     return "from " + m_from.to_string() + " to " + to.to_string() + " (mask " + std::to_string(m_mask) + ")";
 }
@@ -161,7 +170,7 @@ LocalServerNode::split()
     try {
         m_range.increase_mask();
         new_node->m_range.increase_mask();
-        new_node->m_range.from().set_bit_at(m_range.mask(), 1);
+        new_node->m_range.from().set_bit_at(m_range.mask()-1, 1);
 
         std::unordered_set<ClientNode*> left, right;
         for (ClientNode* client : m_clients) {
@@ -197,7 +206,7 @@ RemoteServerNode::split()
     RemoteServerNode *new_node = new RemoteServerNode(m_range, m_proxy);
     m_range.increase_mask();
     new_node->m_range.increase_mask();
-    new_node->m_range.from().set_bit_at(m_range.mask(), 1);
+    new_node->m_range.from().set_bit_at(m_range.mask()-1, 1);
 
     return new_node;
 }

@@ -150,6 +150,11 @@ public:
         return true;
     }
 
+    size_t load() const
+    {
+        return m_clients.size();
+    }
+
     void adopt_nodes(LocalServerNode* from);
 
     void prepare_insert()
@@ -165,7 +170,8 @@ public:
         m_clients.erase(client);
     }
 
-    void foreach_client(void (*callback)(ClientNode *)) const
+    template<typename Callback>
+    void foreach_client(Callback&& callback) const
     {
         for (auto client : m_clients)
             callback(client);

@@ -50,7 +50,7 @@ private:
     std::unique_ptr<Table> m_table;
 
 public:
-    ServerContext(uv::Loop& loop);
+    ServerContext(uv::Loop& loop, uint8_t resolution);
     ~ServerContext();
 
     ServerContext(const ServerContext&) = delete;

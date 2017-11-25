@@ -144,8 +144,12 @@ public:
     Connection(Context *ctx, const net::Address& address) : uv::TCPSocket(ctx->get_event_loop())
     {
         m_context = ctx;
-        m_address = address;
         connect(address);
+    }
+
+    void set_address(const net::Address& address)
+    {
+        m_address = address;
     }
 
     void set_peer(std::shared_ptr<Peer> peer)
@@ -187,6 +191,7 @@ Connection::connected(uv::Error err)
     }
 
     m_address = get_peer_name();
+    log(LOG_DEBUG, "Connected to %s", m_address.to_string().c_str());
     m_context->add_peer_address(m_peer, m_address);
 }
 
@@ -203,6 +208,10 @@ Connection::closed()
 void
 Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
 {
+    // ignore
+    if (!is_usable())
+        return;
+
     if (err) {
         std::string name(m_address.to_string());
         if (err == UV_EOF) {
@@ -213,10 +222,6 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
         close();
         return;
     }
-
-    // ignore
-    if (!is_usable())
-        return;
 
     m_temporary_buffers.add_buffer(std::move(buffer));
 
@@ -230,20 +235,21 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
                 m_opcode = le16toh(header->opcode);
                 m_current_request = le64toh(header->request_id);
 
-                if (m_opcode == 0 || m_opcode == protocol::REPLY_FLAG) {
+                if (m_opcode == 0) {
                     log(LOG_ERR, "Invalid request with null opcode");
                     // Close the connection with extreme prejudice
                     close();
                     return;
                 }
-                if ((m_opcode & ~protocol::REPLY_FLAG) >= (uint16_t)::libhdht::protocol::Opcode::max_opcode) {
+                if (m_opcode != protocol::REPLY_FLAG &&
+                    m_opcode >= (uint16_t)::libhdht::protocol::Opcode::max_opcode) {
                     log(LOG_ERR, "Invalid request opcode");
                     // Close the connection with extreme prejudice
                     close();
                     return;
                 }
 
-                if (m_opcode & protocol::REPLY_FLAG) {
+                if (m_opcode == protocol::REPLY_FLAG) {
                     m_state = State::ReadingError;
                 } else {
                     m_state = State::ReadingObjectId;
@@ -360,7 +366,7 @@ Connection::write_complete(uint64_t req_id, uv::Error err)
 
         m_peer->write_failed(req_id, err);
     } else {
-        log(LOG_DEBUG, "Successfully written %s %lu to %s", (req_id & (1ULL<<63) ? "reply" : "request"), req_id & ~(1ULL<<63), name.c_str());
+        log(LOG_DEBUG, "Successfully written %s %llu to %s", (req_id & (1ULL<<63) ? "reply" : "request"), req_id & ~(1ULL<<63), name.c_str());
     }
 }
 
@@ -675,6 +681,7 @@ Context::new_connection(impl::Connection* connection)
 {
     try {
         net::Address address = connection->get_peer_name();
+        connection->set_address(address);
         log(LOG_INFO, "New connection from %s", address.to_string().c_str());
 
         get_peer(address, AddressType::Dynamic)->adopt_connection(connection);

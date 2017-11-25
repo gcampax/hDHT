@@ -39,8 +39,6 @@ class Table
     // As the server discovers more peers it will split the ranges more
     // and more finely
     std::map<NodeID, ServerNode*> m_ranges;
-    // the chunks in the DHT owned locally
-    std::unordered_set<ServerNode*> m_local_ranges;
 
     // the currently connected clients, indexed by their node ID
     std::map<NodeID, ClientNode*> m_clients;
@@ -80,14 +78,20 @@ public:
     ClientNode *get_existing_client_node(const NodeID& id);
     ServerNode *move_client(ClientNode *, const GeoPoint2D&);
     void forget_client(ClientNode *);
+    void forget_server(ServerNode *);
 
     // Server (range) management
     bool add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol::ServerProxy> proxy);
-    void add_local_server_node(const NodeIDRange& range);
+    void add_local_server_node(const NodeIDRange& range, LocalServerNode *existing = nullptr);
     ServerNode *find_controlling_server(const NodeID& id) const;
 
     // perform any load balancing by splitting any local range
-    void load_balance(void (*)(const NodeIDRange&));
+    enum class LoadBalanceAction {
+        InformPeer,
+        RelinquishRange
+    };
+    void load_balance_with_peer(std::shared_ptr<protocol::ServerProxy>,
+        std::function<void(LoadBalanceAction, ServerNode*)>);
 
     // dump the table to the log (with level LOG_DEBUG)
     void debug_dump_table() const;

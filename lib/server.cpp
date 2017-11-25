@@ -35,20 +35,6 @@ private:
     bool is_client = false;
     ClientNode *m_client_node = nullptr;
 
-    // register the peer corresponding to this stub as client or server
-    void register_server()
-    {
-        if (is_client)
-            throw rpc::RemoteError(EPERM);
-        is_server = true;
-    }
-    void register_client()
-    {
-        if (is_server)
-            throw rpc::RemoteError(EPERM);
-        is_client = true;
-    }
-
     // check that the peer corresponding to this stub registered as client or
     // server
     void check_client_or_server()
@@ -67,6 +53,76 @@ private:
             throw rpc::RemoteError(EPERM);
     }
 
+    void send_node_to_peer(ServerNode *node, std::shared_ptr<protocol::ServerProxy> proxy)
+    {
+        net::Address address;
+
+        if (node->is_local()) {
+            address = m_rpc->get_listening_address();
+        } else {
+            auto thirdparty = static_cast<RemoteServerNode*>(node)->get_proxy();
+            if (thirdparty == nullptr) {
+                // if we don't know the owner, don't send out anything
+                log(LOG_DEBUG, "Skipping synchronization for range %s (owner unknown)", node->get_range().to_string().c_str());
+                return;
+            }
+            address = thirdparty->get_address();
+        }
+
+        auto range = node->get_range();
+        proxy->invoke_add_remote_range([range](rpc::Error *err) {
+            if (err) {
+                log(LOG_WARNING, "Failed to inform peer of range %s: %s",
+                    range.to_string().c_str(), err->what());
+            }
+        }, range, address);
+    }
+
+    void relinquish_node_to_peer(ServerNode *node, std::shared_ptr<protocol::ServerProxy> proxy)
+    {
+        // we won't tell people to take control of what's not ours
+        assert(node->is_local());
+
+        auto range = node->get_range();
+        auto self = shared_from_this();
+        proxy->invoke_control_range([self, proxy, range, node, this](rpc::Error *err) {
+            if (err) {
+                log(LOG_WARNING, "Failed to relinquish range %s: %s",
+                    range.to_string().c_str(), err->what());
+                // take the node back
+                m_table->add_local_server_node(range, static_cast<LocalServerNode*>(node));
+                return;
+            }
+
+            static_cast<LocalServerNode*>(node)->foreach_client([self, proxy, this](ClientNode* client) {
+                proxy->invoke_adopt_client([self, client, this](rpc::Error *err) {
+                    if (err) {
+                        rpc::RemoteError *remote_err = dynamic_cast<rpc::RemoteError*>(err);
+                        if (remote_err && remote_err->code() == EACCES) {
+                            // FIXME
+                            // the table was rebalanced again on their end, and the client needs to go
+                            // somewhere else
+                        }
+
+                        auto client_name = client->get_address().to_string();
+                        log(LOG_ERR, "Failed to transfer client %s: %s", client_name.c_str(), err->what());
+
+                        // not much we can do here, cause we already relinquished the range
+                        // just forget about this client
+                        // eventually the client will get confused and register again
+                        m_table->forget_client(client);
+                        return;
+                    }
+
+                    // done
+                    m_table->forget_client(client);
+                }, client->get_id(), client->get_address(), client->get_all_metadata());
+            });
+
+            m_table->forget_server(node);
+        }, range);
+    }
+
 public:
     ServerMasterImpl(std::shared_ptr<rpc::Peer> peer, uint64_t object_id, rpc::Context *rpc, Table *table) :
         protocol::ServerStub(peer, object_id),
@@ -76,12 +132,45 @@ public:
         assert(object_id == protocol::MASTER_OBJECT_ID);
     }
 
+    // register the peer corresponding to this stub as client or server
+    void register_server()
+    {
+        if (is_client)
+            throw rpc::RemoteError(EPERM);
+        is_server = true;
+    }
+    void register_client()
+    {
+        if (is_server)
+            throw rpc::RemoteError(EPERM);
+        is_client = true;
+    }
+
     virtual void handle_server_hello(uint64_t request_id, net::Address server_address) override
     {
         auto peer = get_peer();
         log(LOG_INFO, "Received ServerHello from %s", server_address.to_string().c_str());
         peer->add_listening_address(server_address);
         register_server();
+
+        auto proxy = peer->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
+        auto self = shared_from_this();
+        m_table->load_balance_with_peer(proxy, [self, proxy, this](Table::LoadBalanceAction action, ServerNode *node) {
+            switch (action) {
+            case Table::LoadBalanceAction::RelinquishRange:
+                log(LOG_DEBUG, "Relinquishing range %s to peer %s",
+                    node->get_range().to_string().c_str(),
+                    proxy->get_address().to_string().c_str());
+                relinquish_node_to_peer(node, proxy);
+                break;
+
+            case Table::LoadBalanceAction::InformPeer:
+                log(LOG_DEBUG, "Informing peer %s of range %s", proxy->get_address().to_string().c_str(),
+                    node->get_range().to_string().c_str());
+                send_node_to_peer(node, proxy);
+                break;
+            }
+        });
 
         // TODO: do something with it
         reply_server_hello(request_id);
@@ -97,6 +186,7 @@ public:
         // if this client double registered cause it got confused, just move it to the right place
         protocol::ClientRegistrationResult result;
         if (m_client_node) {
+            log(LOG_INFO, "Peer was already registered, moving it...");
             ServerNode* new_server = m_table->move_client(m_client_node, point);
 
             // the client should attempt to reregister in the right place
@@ -114,6 +204,7 @@ public:
             // by this server
 
             if (m_client_node) {
+                log(LOG_INFO, "Assuming control of node %s", m_client_node->get_id().to_string().c_str());
                 m_client_node->set_peer(peer);
 
                 // if the table obtained an existing ClientNode (same NodeID/geocoordinates,
@@ -124,6 +215,7 @@ public:
                     result = protocol::ClientRegistrationResult::ClientCreated;
                 m_client_node->set_registered();
             } else {
+                log(LOG_INFO, "Rejecting registration, not our responsability");
                 result = protocol::ClientRegistrationResult::WrongServer;
             }
         }
@@ -134,21 +226,33 @@ public:
     virtual void handle_add_remote_range(uint64_t request_id, NodeIDRange range, net::Address address) override
     {
         check_server();
-        if (!m_table->is_valid_range(range))
+
+        log(LOG_INFO, "Found new owner for range %s: %s", range.to_string().c_str(), address.to_string().c_str());
+        if (!m_table->is_valid_range(range)) {
+            log(LOG_WARNING, "Not a valid range");
             throw rpc::RemoteError(EINVAL);
+        }
 
         auto proxy = maybe_register_with_server(m_rpc, address);
 
-        m_table->add_remote_server_node(range, proxy);
+        if (m_table->add_remote_server_node(range, proxy))
+            reply_add_remote_range(request_id);
+        else
+            reply_error(request_id, EACCES);
     }
 
     virtual void handle_control_range(uint64_t request_id, NodeIDRange range) override
     {
         check_server();
-        if (!m_table->is_valid_range(range))
+
+        log(LOG_INFO, "Got request to control range %s", range.to_string().c_str());
+        if (!m_table->is_valid_range(range)) {
+            log(LOG_WARNING, "Not a valid range");
             throw rpc::RemoteError(EINVAL);
+        }
 
         m_table->add_local_server_node(range);
+        reply_control_range(request_id);
     }
 
     virtual void handle_adopt_client(uint64_t request_id, NodeID node_id, net::Address address, std::unordered_map<std::string, std::string> metadata) override
@@ -170,14 +274,22 @@ public:
     {
         check_client_or_server();
 
+        log(LOG_INFO, "Received FindControllingServer for %s", node_id.to_string().c_str());
+
         ServerNode *node = m_table->find_controlling_server(node_id);
 
         if (node->is_local()) {
+            log(LOG_INFO, "Found node locally in range %s", node->get_range().to_string().c_str());
             reply_find_controlling_server(request_id, m_rpc->get_listening_address(), node->get_range());
             return;
         }
 
         auto proxy = dynamic_cast<RemoteServerNode*>(node)->get_proxy();
+        if (proxy == nullptr) {
+            log(LOG_WARNING, "Found unknown region in the table: %s", node->get_range().to_string().c_str());
+            reply_error(request_id, ENXIO);
+            return;
+        }
         auto self = shared_from_this();
         proxy->invoke_find_controlling_server([self, request_id, node_id, this](rpc::Error *err, const net::Address& address, const NodeIDRange& subrange) {
             if (err) {
@@ -221,14 +333,24 @@ public:
         if (m_client_node == nullptr)
             throw rpc::RemoteError(ENXIO);
 
+        log(LOG_INFO, "Moving client %s to %s", get_peer()->get_listening_address().to_string().c_str(),
+            new_location.to_string().c_str());
+
         ServerNode *new_server = m_table->move_client(m_client_node, new_location);
         if (new_server->is_local()) {
+            log(LOG_INFO, "Client is still under our control");
             reply_set_location(request_id, protocol::SetLocationResult::SameServer, m_client_node->get_id());
             return;
         }
 
         auto proxy = static_cast<RemoteServerNode*>(new_server)->get_proxy();
+        if (proxy == nullptr) {
+            log(LOG_WARNING, "Found unknown region in the table: %s", new_server->get_range().to_string().c_str());
+            reply_error(request_id, ENXIO);
+            return;
+        }
         auto self = shared_from_this();
+        log(LOG_INFO, "Transfering client to %s", proxy->get_address().to_string().c_str());
         proxy->invoke_adopt_client([self, request_id, new_location, this](rpc::Error *err) {
             ClientNode *client_node = m_client_node;
             m_client_node = nullptr;
@@ -258,6 +380,8 @@ public:
         if (m_client_node == nullptr)
             throw rpc::RemoteError(ENXIO);
 
+        log(LOG_INFO, "Setting metadata key %s to \"%s\" for client %s", key.c_str(), value.c_str(),
+            get_peer()->get_listening_address().to_string().c_str());
         m_client_node->set_metadata(key, value);
         reply_set_metadata(request_id);
     }
@@ -272,6 +396,8 @@ public:
         if (node == nullptr) // this node ID is not here, call find_controlling_server() first
             throw rpc::RemoteError(ENOENT);
 
+        log(LOG_INFO, "Get metadata request for key %s in client %s from %s", key.c_str(),
+            node->get_id().to_string().c_str(), get_peer()->get_listening_address().to_string().c_str());
         reply_get_metadata(request_id, m_client_node->get_metadata(key));
     }
 
@@ -290,9 +416,9 @@ public:
     }
 };
 
-ServerContext::ServerContext(uv::Loop& loop) :
+ServerContext::ServerContext(uv::Loop& loop, uint8_t resolution) :
     m_rpc(std::make_unique<rpc::Context>(loop)),
-    m_table(std::make_unique<Table>(0))
+    m_table(std::make_unique<Table>(resolution))
 {
     m_rpc->add_stub_factory([this](std::shared_ptr<rpc::Peer> peer) {
         peer->create_named_stub<ServerMasterImpl>(protocol::MASTER_OBJECT_ID, m_rpc.get(), m_table.get());
@@ -324,6 +450,10 @@ maybe_register_with_server(rpc::Context *ctx, const net::Address& address)
 
     net::Address own_address = ctx->get_listening_address();
     auto peer = ctx->get_peer(address);
+
+    auto stub = std::dynamic_pointer_cast<ServerMasterImpl>(peer->get_stub(protocol::MASTER_OBJECT_ID));
+    stub->register_server();
+
     auto master = peer->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
     master->invoke_server_hello([peer, address](rpc::Error *error) {
         if (error) {
@@ -338,9 +468,14 @@ maybe_register_with_server(rpc::Context *ctx, const net::Address& address)
 void
 ServerContext::start()
 {
-    // register ourselves with the peers we know about
-    for (auto address : m_peers)
-        maybe_register_with_server(m_rpc.get(), address);
+    if (m_peers.empty()) {
+        // become the controller of the whole table
+        m_table->add_local_server_node(NodeIDRange());
+    } else {
+        // register ourselves with the peers we know about
+        for (auto address : m_peers)
+            maybe_register_with_server(m_rpc.get(), address);
+    }
 }
 
 }

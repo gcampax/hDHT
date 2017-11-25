@@ -27,6 +27,6 @@
 namespace libhdht {
 
 void set_log_function(int(*function)(int, const char*, va_list));
-void log(int level, const char* msg, ...);
+void log(int level, const char* msg, ...) __attribute__((format(printf, 2, 3)));
 
 }

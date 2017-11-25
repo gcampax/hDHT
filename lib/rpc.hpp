@@ -207,6 +207,10 @@ public:
     {
         return m_object_id;
     }
+    net::Address get_address() const
+    {
+        return m_peer->get_listening_address();
+    }
 
     // only need this for RTTI (which is used to check the types
     // of arguments on the wire)

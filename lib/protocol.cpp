@@ -88,7 +88,7 @@ void dispatch_helper(Type* object, Callback callback, uint64_t request_id, Singl
         } catch(rpc::RemoteError e) { \
             reply_error(request_id, e);\
         } catch(rpc::ReadError e) {\
-            log(LOG_ERR, "Failed to demarshal incoming request");\
+            log(LOG_ERR, "Failed to demarshal incoming request: %s", e.what());\
             reply_fatal_error(request_id, EINVAL);\
         }\
         break;

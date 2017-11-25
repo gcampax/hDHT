@@ -43,7 +43,7 @@ net::Address
 TCPSocket::get_peer_name() const
 {
     net::Address address;
-    int size = 0;
+    int size = sizeof(address);
     Error::check(uv_tcp_getpeername(this, address.get(), &size));
     return address;
 }
