@@ -292,4 +292,36 @@ Table::forget_client(ClientNode* node)
     delete node;
 }
 
+void
+Table::debug_dump_table () const
+{
+    log(LOG_DEBUG, "--- begin table dump ---");
+    for (const auto& it : m_ranges) {
+        const auto& range = it.second->get_range();
+        assert(it.first == range.from());
+        auto range_str = range.to_string();
+        log(LOG_DEBUG, "Range %p: %s", it.second, range_str.c_str());
+
+        if (it.second->is_local()) {
+            auto local = static_cast<LocalServerNode*>(it.second);
+            local->foreach_client([](ClientNode* client) {
+                log(LOG_DEBUG, "Owns client %p", client);
+            });
+        }
+    }
+
+    for (const auto& it : m_clients) {
+        const auto& node_id = it.second->get_id();
+        assert(it.first == node_id);
+        auto node_str = node_id.to_string();
+        const auto& coord = it.second->get_coordinates();
+
+        log(LOG_DEBUG, "Client %p at id %s (%g, %g)", it.second, node_str.c_str(), coord.latitude, coord.longitude);
+        for (const auto& meta_it : it.second->get_all_metadata())
+            log(LOG_DEBUG, "Meta: %s = %s", meta_it.first.c_str(), meta_it.second.c_str());
+    }
+
+    log(LOG_DEBUG, "--- end table dump ---");
+}
+
 }

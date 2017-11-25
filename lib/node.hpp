@@ -153,6 +153,12 @@ public:
     {
         m_clients.erase(client);
     }
+
+    void foreach_client(void (*callback)(ClientNode *)) const
+    {
+        for (auto client : m_clients)
+            callback(client);
+    }
 };
 
 // A server node somewhere else in the world

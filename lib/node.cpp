@@ -87,6 +87,17 @@ NodeID::has_mask(uint8_t mask) const
     return true;
 }
 
+std::string
+NodeID::to_string() const
+{
+    std::string buffer;
+    buffer.resize(8*NodeID::size);
+    for (size_t i = 0; i < 8*NodeID::size; i++)
+        buffer[i] = bit_at(i) ? '1' : '0';
+
+    return buffer;
+}
+
 bool
 NodeIDRange::contains(const NodeIDRange &subrange) const
 {
@@ -124,6 +135,15 @@ bool
 NodeIDRange::has_mask(uint8_t mask) const
 {
     return m_mask <= mask && m_from.has_mask(m_mask);
+}
+
+std::string
+NodeIDRange::to_string() const
+{
+    NodeID to = m_from;
+    to.set_bit_at(m_mask, 1);
+
+    return "from " + m_from.to_string() + " to " + to.to_string() + " (mask " + std::to_string(m_mask) + ")";
 }
 
 

@@ -88,6 +88,9 @@ public:
     // perform any load balancing by splitting any local range
     void load_balance(void (*)(const NodeIDRange&));
 
+    // dump the table to the log (with level LOG_DEBUG)
+    void debug_dump_table() const;
+
 };
 
 }

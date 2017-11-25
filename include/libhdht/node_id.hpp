@@ -80,7 +80,7 @@ public:
         return m_parts;
     }
 
-    std::string to_string();
+    std::string to_string() const;
 };
 
 class NodeIDRange
@@ -119,7 +119,7 @@ public:
 
     bool has_mask(uint8_t mask) const;
 
-    std::string to_string();
+    std::string to_string() const;
 };
 
 }
