@@ -105,6 +105,9 @@ public:
     virtual void handle_add_remote_range(uint64_t request_id, NodeIDRange range, net::Address address) override
     {
         check_server();
+        if (!m_table->is_valid_range(range))
+            throw rpc::RemoteError(EINVAL);
+
         auto proxy = maybe_register_with_server(m_rpc, address);
 
         m_table->add_remote_server_node(range, proxy);
@@ -113,14 +116,21 @@ public:
     virtual void handle_control_range(uint64_t request_id, NodeIDRange range) override
     {
         check_server();
+        if (!m_table->is_valid_range(range))
+            throw rpc::RemoteError(EINVAL);
+
         m_table->add_local_server_node(range);
     }
 
     virtual void handle_adopt_client(uint64_t request_id, NodeID node_id, net::Address address, std::unordered_map<std::string, std::string> metadata) override
     {
+        check_server();
+        if (!m_table->is_valid_node_id(node_id))
+            throw rpc::RemoteError(EINVAL);
+
         ClientNode *client_node = m_table->get_or_create_client_node(node_id);
         if (client_node == nullptr)
-            throw new rpc::RemoteError(EACCES);
+            throw rpc::RemoteError(EACCES);
 
         auto peer = m_rpc->get_peer(address);
         client_node->set_peer(peer);
@@ -130,13 +140,13 @@ public:
     virtual void handle_find_controlling_server(uint64_t request_id, NodeID id) override
     {
         check_client_or_server();
+        if (!m_table->is_valid_node_id(id))
+            throw rpc::RemoteError(EINVAL);
 
-        ServerNode *node;
-        NodeIDRange range;
-        m_table->find_controlling_server(id, node, range);
+        ServerNode *node = m_table->find_controlling_server(id);
 
         if (node->is_local()) {
-            reply_find_controlling_server(request_id, m_rpc->get_listening_address(), range);
+            reply_find_controlling_server(request_id, m_rpc->get_listening_address(), node->get_range());
             return;
         }
 
@@ -152,17 +162,14 @@ public:
                 return;
             }
 
-            ServerNode *node;
-            NodeIDRange range;
-            m_table->find_controlling_server(id, node, range);
-
+            ServerNode *node = m_table->find_controlling_server(id);
             if (node->is_local()) {
                 // race condition: we became leader for this range while were asking someone about iter
-                reply_find_controlling_server(request_id, m_rpc->get_listening_address(), range);
+                reply_find_controlling_server(request_id, m_rpc->get_listening_address(), node->get_range());
                 return;
             }
 
-            if (!range.contains(subrange)) {
+            if (!node->get_range().contains(subrange)) {
                 // the other peer is being weird
                 reply_error(request_id, EIO);
                 return;
@@ -185,15 +192,15 @@ public:
         check_client();
 
         if (m_client_node == nullptr)
-            throw new rpc::RemoteError(ENXIO);
+            throw rpc::RemoteError(ENXIO);
 
-        RemoteServerNode *new_server;
-        if (m_table->move_client(m_client_node, new_location, new_server)) {
+        ServerNode *new_server = m_table->move_client(m_client_node, new_location);
+        if (new_server->is_local()) {
             reply_set_location(request_id, protocol::SetLocationResult::SameServer);
             return;
         }
 
-        auto proxy = new_server->get_proxy();
+        auto proxy = static_cast<RemoteServerNode*>(new_server)->get_proxy();
         auto self = shared_from_this();
         proxy->invoke_adopt_client([self, request_id, this](rpc::Error *err) {
             ClientNode *client_node = m_client_node;
@@ -221,7 +228,7 @@ public:
         check_client();
 
         if (m_client_node == nullptr)
-            throw new rpc::RemoteError(ENXIO);
+            throw rpc::RemoteError(ENXIO);
 
         m_client_node->set_metadata(key, value);
         reply_set_metadata(request_id);
@@ -230,10 +237,12 @@ public:
     virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override
     {
         check_client();
+        if (!m_table->is_valid_node_id(node_id))
+            throw rpc::RemoteError(EINVAL);
 
         ClientNode *node = m_table->get_or_create_client_node(node_id);
         if (node == nullptr) // this node ID is not here, call find_controlling_server() first
-            throw new rpc::RemoteError(ENOENT);
+            throw rpc::RemoteError(ENOENT);
 
         assert(node->get_peer());
         reply_find_client_address(request_id, node->get_address());

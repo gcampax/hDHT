@@ -49,7 +49,18 @@ public:
     NodeID(const GeoPoint2D&, uint8_t resolution);
 
     GeoPoint2D to_point() const;
+    // check that the low 160-mask bits are all 0
+    // (meaning that this is a valid node id in a DHT of resolution mask)
     bool has_mask(uint8_t mask) const;
+
+    int bit_at(uint8_t pos) const
+    {
+        return (m_parts[pos / 8] >> (pos % 8)) & 0x1;
+    }
+    void set_bit_at(uint8_t pos, int bit)
+    {
+        m_parts[pos / 8] = (m_parts[pos / 8] & ~(1 << (pos % 8))) | (bit << (pos % 8));
+    }
 
     bool operator==(const NodeID& o) const
     {
@@ -68,32 +79,47 @@ public:
     {
         return m_parts;
     }
+
+    std::string to_string();
 };
 
 class NodeIDRange
 {
 private:
     NodeID m_from;
-    uint8_t m_log_size;
+    uint8_t m_mask;
 public:
-    NodeIDRange() : m_from(), m_log_size(0)
+    NodeIDRange() : m_from(), m_mask(0)
     {}
-    NodeIDRange(const NodeID& from, uint8_t log_size) : m_from(from), m_log_size(log_size)
+    NodeIDRange(const NodeID& from, uint8_t mask) : m_from(from), m_mask(mask)
     {
-        assert(log_size <= 8*NodeID::size);
+        assert(mask <= 8*NodeID::size);
     }
 
     const NodeID& from() const
     {
         return m_from;
     }
-    uint64_t log_size() const
+    NodeID& from()
     {
-        return m_log_size;
+        return m_from;
+    }
+    // the number of high bits in m_from that should be considered
+    uint8_t mask() const
+    {
+        return m_mask;
+    }
+    void increase_mask()
+    {
+        m_mask++;
     }
 
     bool contains(const NodeID&) const;
     bool contains(const NodeIDRange&) const;
+
+    bool has_mask(uint8_t mask) const;
+
+    std::string to_string();
 };
 
 }

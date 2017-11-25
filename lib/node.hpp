@@ -92,16 +92,15 @@ public:
 // a certain list of clients)
 class ServerNode
 {
+protected:
     NodeIDRange m_range;
     bool m_frozen;
 
-    // TODO replace with RTree
-    std::vector<ClientNode> m_clients;
-
 public:
-    ServerNode(const NodeIDRange& id_range) : m_range(id_range) {}
+    ServerNode(const NodeIDRange& id_range);
     virtual ~ServerNode() {}
 
+    virtual ServerNode* split() = 0;
     virtual bool is_local() const = 0;
 
     const NodeIDRange& get_range() const
@@ -127,14 +126,32 @@ public:
 class LocalServerNode : public ServerNode
 {
     // the clients that are registered with this server
-    std::vector<ClientNode*> m_clients;
+    // TODO replace with RTree
+    std::unordered_set<ClientNode*> m_clients;
 
 public:
-    LocalServerNode(const NodeIDRange& id) : ServerNode(id) {}
+    LocalServerNode(const NodeIDRange& id);
 
-    bool is_local() const override
+    virtual LocalServerNode* split() override;
+
+    virtual bool is_local() const override
     {
         return true;
+    }
+
+    void adopt_nodes(LocalServerNode* from);
+
+    void prepare_insert()
+    {
+        m_clients.reserve(m_clients.size()+1);
+    }
+    void add_client(ClientNode *client)
+    {
+        m_clients.insert(client);
+    }
+    void remove_client(ClientNode *client)
+    {
+        m_clients.erase(client);
     }
 };
 
@@ -144,13 +161,14 @@ class RemoteServerNode : public ServerNode
     std::shared_ptr<protocol::ServerProxy> m_proxy;
 
 public:
-    RemoteServerNode(const NodeIDRange& id, std::shared_ptr<protocol::ServerProxy> proxy) :
-        ServerNode(id), m_proxy(proxy) {}
+    RemoteServerNode(const NodeIDRange& id, std::shared_ptr<protocol::ServerProxy> proxy);
 
     std::shared_ptr<protocol::ServerProxy> get_proxy() const
     {
         return m_proxy;
     }
+
+    virtual RemoteServerNode* split() override;
 
     bool is_local() const override
     {

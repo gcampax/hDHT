@@ -66,7 +66,7 @@ public:
     void write(const NodeIDRange& range)
     {
         write(range.from());
-        write(range.log_size());
+        write(range.mask());
     }
 
     void write(const std::string& str)
@@ -118,10 +118,10 @@ inline NodeIDRange
 BufferReader::read<NodeIDRange>()
 {
     NodeID from = read<NodeID>();
-    uint8_t log_size = read<uint8_t>();
-    if (log_size > 8*NodeID::size)
+    uint8_t mask = read<uint8_t>();
+    if (mask > 8*NodeID::size)
         throw ReadError("Invalid NodeID range size");
-    return NodeIDRange(std::move(from), log_size);
+    return NodeIDRange(std::move(from), mask);
 }
 
 template<>

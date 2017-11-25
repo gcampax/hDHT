@@ -69,9 +69,28 @@ NodeID::to_point() const
 }
 
 bool
+NodeID::has_mask(uint8_t mask) const
+{
+    assert(mask <= NodeID::size * 8);
+
+    size_t i0 = mask / 8;
+    size_t first_bit = mask % 8;
+    uint8_t low_bits = ((1 << first_bit)-1) & 0xFF;
+    if ((m_parts[i0] & low_bits) != 0)
+        return false;
+
+    for (size_t i = i0 + 1; i < NodeID::size; i++) {
+        if (m_parts[i] != 0)
+            return false;
+    }
+
+    return true;
+}
+
+bool
 NodeIDRange::contains(const NodeIDRange &subrange) const
 {
-    if (m_log_size > subrange.m_log_size)
+    if (m_mask > subrange.m_mask)
         return false;
 
     return contains(subrange.m_from);
@@ -88,17 +107,79 @@ bool
 NodeIDRange::contains(const NodeID & node) const
 {
     size_t i;
-    for (i = 0; i < m_log_size / 8; i++) {
+    for (i = 0; i < m_mask / 8; i++) {
         if (m_from.m_parts[i] != node.m_parts[i])
             return false;
     }
 
-    if (i * 8 < m_log_size) {
-        uint8_t mask = high_bit_mask(m_log_size - i * 8);
+    if (i * 8 < m_mask) {
+        uint8_t mask = high_bit_mask(m_mask - i * 8);
         if ((m_from.m_parts[i] & mask) != (node.m_parts[i] & mask))
             return false;
     }
     return true;
+}
+
+bool
+NodeIDRange::has_mask(uint8_t mask) const
+{
+    return m_mask <= mask && m_from.has_mask(m_mask);
+}
+
+
+ServerNode::ServerNode(const NodeIDRange& id_range) : m_range(id_range)
+{}
+
+
+LocalServerNode::LocalServerNode(const NodeIDRange& range) : ServerNode(range)
+{}
+
+LocalServerNode *
+LocalServerNode::split()
+{
+    LocalServerNode *new_node = new LocalServerNode(m_range);
+    try {
+        m_range.increase_mask();
+        new_node->m_range.increase_mask();
+        new_node->m_range.from().set_bit_at(m_range.mask(), 1);
+
+        std::unordered_set<ClientNode*> left, right;
+        for (ClientNode* client : m_clients) {
+            if (client->get_id().bit_at(m_range.mask()-1))
+                right.insert(client);
+            else
+                left.insert(client);
+        }
+        std::swap(m_clients, left);
+        std::swap(new_node->m_clients, right);
+
+        return new_node;
+    } catch(const std::bad_alloc& e) {
+        delete new_node;
+        throw;
+    }
+}
+
+void
+LocalServerNode::adopt_nodes(LocalServerNode *from)
+{
+    m_clients.insert(from->m_clients.begin(), from->m_clients.end());
+}
+
+
+RemoteServerNode::RemoteServerNode(const NodeIDRange& range, std::shared_ptr<protocol::ServerProxy> proxy) :
+    ServerNode(range), m_proxy(proxy)
+{}
+
+RemoteServerNode *
+RemoteServerNode::split()
+{
+    RemoteServerNode *new_node = new RemoteServerNode(m_range, m_proxy);
+    m_range.increase_mask();
+    new_node->m_range.increase_mask();
+    new_node->m_range.from().set_bit_at(m_range.mask(), 1);
+
+    return new_node;
 }
 
 }
