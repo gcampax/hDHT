@@ -261,6 +261,16 @@ Table::get_or_create_client_node(const NodeID &id)
     return new_node;
 }
 
+ClientNode*
+Table::get_existing_client_node(const NodeID &id)
+{
+    auto it = m_clients.find(id);
+    if (it != m_clients.end())
+        return it->second;
+    else
+        return nullptr;
+}
+
 ServerNode *
 Table::move_client(ClientNode* node, const GeoPoint2D & pt)
 {
@@ -293,7 +303,7 @@ Table::forget_client(ClientNode* node)
 }
 
 void
-Table::debug_dump_table () const
+Table::debug_dump_table() const
 {
     log(LOG_DEBUG, "--- begin table dump ---");
     for (const auto& it : m_ranges) {

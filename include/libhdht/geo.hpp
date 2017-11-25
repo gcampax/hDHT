@@ -30,6 +30,7 @@ struct GeoPoint2D
     double latitude;
     double longitude;
 
+    std::string to_string() const;
     static double distance(GeoPoint2D& one, GeoPoint2D& two);
 };
 

@@ -122,6 +122,7 @@ private:
     uint16_t m_port;
 
 public:
+    Name() {}
     Name(const std::string& hostname, uint16_t port) : m_hostname(hostname), m_port(port) {}
     Name(const std::string& hostandport);
 

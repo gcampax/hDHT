@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <streambuf>
 #include <uv.h>
 
 #include "net.hpp"
@@ -34,35 +35,6 @@ namespace libhdht
 
 namespace uv
 {
-
-class Error : public std::exception
-{
-private:
-    int m_status;
-
-public:
-    Error(int status) : m_status(status) {}
-
-    virtual const char* what() const noexcept override
-    {
-        return uv_strerror(m_status);
-    }
-
-    explicit operator bool() const
-    {
-        return m_status != 0;
-    }
-    bool operator==(int status) const
-    {
-        return m_status == status;
-    }
-
-    static void check(int status)
-    {
-        if (status != 0)
-            throw uv::Error(status);
-    }
-};
 
 class TCPSocket;
 
@@ -161,6 +133,47 @@ public:
     }
 };
 
+class BufferInputStringBuf : public std::streambuf
+{
+private:
+    uv::Buffer m_buffer;
+
+public:
+    BufferInputStringBuf(uv::Buffer&& buffer) : m_buffer(std::move(buffer))
+    {
+        setg(m_buffer.base, m_buffer.base, m_buffer.base+m_buffer.len);
+    }
+    virtual ~BufferInputStringBuf() {}
+
+    virtual pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which) override
+    {
+        switch (dir) {
+        case std::ios_base::beg:
+            return seekpos(off, which);
+        case std::ios_base::end:
+            return seekpos(m_buffer.len - off, which);
+            break;
+        case std::ios_base::cur:
+            return seekpos((gptr() - eback()) + off, which);
+        default:
+            return -1;
+        }
+    }
+    virtual pos_type seekpos(pos_type pos, std::ios_base::openmode which) override
+    {
+        size_t off = std::min(std::max(pos_type(0), pos), pos_type(m_buffer.len));
+        setg(m_buffer.base, m_buffer.base + off, m_buffer.base+m_buffer.len);
+        return off;
+    }
+
+    virtual std::streamsize showmanyc() override
+    {
+        // underflow will always return -1
+        return -1;
+    }
+};
+
+
 class TCPSocket : private uv_tcp_t
 {
 private:
@@ -231,6 +244,51 @@ public:
     {
         if (err)
             close();
+    }
+};
+
+class TTY : public uv_tty_t
+{
+private:
+    template<typename T>
+    static inline T* handle_cast(TTY *socket) {
+        return (T*)(static_cast<uv_tty_t*>(socket));
+    }
+    template<typename T>
+    static inline TTY* handle_downcast(T *socket) {
+        return static_cast<TTY*>((uv_tty_t*)(socket));
+    }
+
+public:
+    TTY(uv_loop_t* loop, int fd);
+    TTY(uv::Loop& loop, int fd) : TTY(loop.loop(), fd) {}
+    virtual ~TTY();
+
+    virtual void read_line(Error err, uv::Buffer&&)
+    {
+        if (err)
+            close();
+    }
+
+    void ref()
+    {
+        uv_ref(handle_cast<uv_handle_t>(this));
+    }
+    void unref()
+    {
+        uv_unref(handle_cast<uv_handle_t>(this));
+    }
+    void close();
+    virtual void closed()
+    {
+        // free any memory associated with this socket
+        delete this;
+    }
+
+    void start_reading();
+    void stop_reading()
+    {
+        uv_read_stop(handle_cast<uv_stream_t>(this));
     }
 };
 

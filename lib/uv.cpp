@@ -51,6 +51,8 @@ TCPSocket::get_peer_name() const
 void
 TCPSocket::close()
 {
+    m_usable = false;
+
     uv_close(handle_cast<uv_handle_t>(this), [](uv_handle_t* handle) {
         handle_downcast(handle)->closed();
     });
@@ -151,6 +153,46 @@ TCPSocket::write(uint64_t req_id, const Buffer* buffers, size_t nbuffers)
         handle_downcast(req->handle)->write_complete(req->req_id, status);
         delete req;
     }));
+}
+
+
+TTY::TTY(uv_loop_t *loop, int fd)
+{
+    uv_tty_init(loop, this, fd, 1 /* readable */);
+}
+
+void
+TTY::start_reading()
+{
+    Error::check(uv_read_start(handle_cast<uv_stream_t>(this), alloc_memory, [](uv_stream_t* stream, ssize_t nread, const uv_buf_t* uv_buffer) {
+        if (nread == 0) {
+            // EAGAIN
+            free(uv_buffer->base);
+            return;
+        }
+        uv::Error error(nread < 0 ? nread : 0);
+        uv::Buffer buffer;
+
+        if (nread > 0)
+            buffer = uv::Buffer((const uint8_t*)uv_buffer->base, nread, true);
+        else
+            free(uv_buffer->base);
+        handle_downcast(stream)->read_line(error, std::move(buffer));
+    }));
+}
+
+void
+TTY::close()
+{
+    uv_close(handle_cast<uv_handle_t>(this), [](uv_handle_t* handle) {
+        handle_downcast(handle)->closed();
+    });
+}
+
+TTY::~TTY()
+{
+    if (!uv_is_closing(handle_cast<uv_handle_t>(this)))
+        std::terminate();
 }
 
 }

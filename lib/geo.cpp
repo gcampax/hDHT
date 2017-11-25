@@ -21,6 +21,8 @@
 #include "libhdht-private.hpp"
 
 #include <cmath>
+#include <sstream>
+#include <iomanip>
 
 namespace libhdht {
 
@@ -50,6 +52,16 @@ GeoPoint2D::distance(GeoPoint2D& one, GeoPoint2D& two)
     double c = 2 * std::atan2(std::sqrt(x), std::sqrt(1-x));
 
     return R * c;
+}
+
+std::string
+GeoPoint2D::to_string() const
+{
+    std::ostringstream ostr;
+    ostr << std::setprecision(5) << "lat: " << abs(latitude) <<
+        (latitude > 0 ? " north" : " south") << ", long: " << abs(longitude) <<
+        (longitude > 0 ? " east" : " west");
+    return ostr.str();
 }
 
 }

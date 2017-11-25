@@ -39,10 +39,21 @@ class ClientNode
     std::shared_ptr<rpc::Peer> m_peer;
     NodeID m_node_id;
     mutable std::unordered_map<std::string, std::string> m_metadata;
+    bool m_registered = false;
 
 public:
     ClientNode(const NodeID& id) : m_node_id(id) {}
     ~ClientNode() {}
+
+    bool is_registered() const
+    {
+        return m_registered;
+    }
+
+    void set_registered()
+    {
+        m_registered = true;
+    }
 
     const NodeID& get_id()
     {

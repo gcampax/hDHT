@@ -349,6 +349,10 @@ Connection::read_callback(uv::Error err, uv::Buffer&& buffer)
 void
 Connection::write_complete(uint64_t req_id, uv::Error err)
 {
+    // if this connection was already severed, ignore the error
+    if (!is_usable())
+        return;
+
     std::string name(m_address.to_string());
     if (err) {
         log(LOG_WARNING, "Write error to %s: %s", name.c_str(), err.what());
@@ -366,47 +370,59 @@ Connection::write_request(uint16_t opcode,
                           uint64_t object_id,
                           const uv::Buffer& payload)
 {
-    BufferWriter header;
-    header.reserve(sizeof(protocol::BaseRequest));
-    header.write(opcode);
-    header.write(request_id);
-    header.write(object_id);
-    assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
-    header.write(static_cast<uint16_t>(payload.len));
+    try {
+        BufferWriter header;
+        header.reserve(sizeof(protocol::BaseRequest));
+        header.write(opcode);
+        header.write(request_id);
+        header.write(object_id);
+        assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
+        header.write(static_cast<uint16_t>(payload.len));
 
-    uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
-    write(request_id, buffers, 2);
+        uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
+        write(request_id, buffers, 2);
+    } catch(const uv::Error& err) {
+        write_complete(request_id, err);
+    }
 }
 
 void
 Connection::write_reply(uint64_t request_id,
                         const uv::Buffer& payload)
 {
-    BufferWriter header;
-    header.reserve(sizeof(protocol::BaseResponse));
-    header.write(protocol::REPLY_FLAG);
-    header.write(request_id);
-    header.write(static_cast<uint32_t>(0) /* error code */);
-    assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
-    header.write(static_cast<uint16_t>(payload.len));
+    try {
+        BufferWriter header;
+        header.reserve(sizeof(protocol::BaseResponse));
+        header.write(protocol::REPLY_FLAG);
+        header.write(request_id);
+        header.write(static_cast<uint32_t>(0) /* error code */);
+        assert(payload.len <= protocol::MAX_PAYLOAD_SIZE);
+        header.write(static_cast<uint16_t>(payload.len));
 
-    uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
-    write(request_id | (1ULL<<63), buffers, 2);
+        uv::Buffer buffers[2] = { header.close(), uv::Buffer((uint8_t*)payload.base, payload.len, false) };
+        write(request_id | (1ULL<<63), buffers, 2);
+    } catch(const uv::Error& err) {
+        write_complete(request_id | (1ULL<<63), err);
+    }
 }
 
 void
 Connection::write_error(uint64_t request_id,
                         RemoteError error)
 {
-    BufferWriter header;
-    header.reserve(sizeof(protocol::BaseResponse));
-    header.write(protocol::REPLY_FLAG);
-    header.write(request_id);
-    header.write(error.code());
-    header.write(static_cast<uint16_t>(0));
+    try {
+        BufferWriter header;
+        header.reserve(sizeof(protocol::BaseResponse));
+        header.write(protocol::REPLY_FLAG);
+        header.write(request_id);
+        header.write(error.code());
+        header.write(static_cast<uint16_t>(0));
 
-    uv::Buffer buffers[1] = { header.close() };
-    write(request_id | (1ULL<<63), buffers, 1);
+        uv::Buffer buffers[1] = { header.close() };
+        write(request_id | (1ULL<<63), buffers, 1);
+    } catch(const uv::Error& err) {
+        write_complete (request_id | (1ULL<<63), err);
+    }
 }
 
 }
@@ -578,15 +594,29 @@ class Server : public uv::TCPSocket
 {
 private:
     Context *m_context;
+    net::Address m_address;
 
 public:
-    Server(Context *ctx) : uv::TCPSocket(ctx->get_event_loop()), m_context(ctx) {}
+    Server(Context *ctx, const net::Address& address) :
+        uv::TCPSocket(ctx->get_event_loop()),
+        m_context(ctx),
+        m_address(address)
+    {
+        listen(address);
+        start_reading();
+    }
     Server(const Server&) = delete;
     Server(Server&&) = delete;
     Server& operator=(const Server&) = delete;
     Server& operator=(Server&&) = delete;
 
-    virtual void new_connection() override {
+    const net::Address& get_listening_address() const
+    {
+        return m_address;
+    }
+
+    virtual void new_connection() override
+    {
         Connection* connection = new Connection(m_context);
         accept(connection);
         m_context->new_connection(connection);
@@ -595,12 +625,16 @@ public:
 
 }
 
+Context::Context(uv::Loop& loop) : m_loop(loop)
+{}
+
+Context::~Context()
+{}
+
 void
 Context::add_address(const net::Address& address)
 {
-    auto socket = std::make_unique<impl::Server>(this);
-    socket->listen(address);
-    socket->start_reading();
+    auto socket = std::make_unique<impl::Server>(this, address);
     m_listening_sockets.push_back(std::move(socket));
 
     log(LOG_INFO, "Listening on address %s", address.to_string().c_str());
@@ -633,7 +667,7 @@ Context::get_listening_address() const
     if (m_listening_sockets.empty())
         return net::Address();
 
-    return m_listening_sockets.front()->get_peer_name();
+    return m_listening_sockets.front()->get_listening_address();
 }
 
 void

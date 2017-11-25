@@ -77,6 +77,7 @@ public:
     }
 
     ClientNode *get_or_create_client_node(const NodeID& id);
+    ClientNode *get_existing_client_node(const NodeID& id);
     ServerNode *move_client(ClientNode *, const GeoPoint2D&);
     void forget_client(ClientNode *);
 

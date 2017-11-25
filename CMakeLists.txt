@@ -48,6 +48,7 @@ pkg_check_modules(SYSTEMD libsystemd)
 set(HEADERS include/libhdht/libhdht.hpp)
 
 add_library(hdht SHARED
+	lib/client.cpp
 	lib/dht.cpp
 	lib/libhdht.cpp
 	lib/geo.cpp
@@ -72,6 +73,10 @@ endif(SYSTEMD_FOUND)
 add_executable(hdhtd server/main.cpp)
 target_link_libraries(hdhtd hdht)
 
+add_executable(hdht-cli client/main.cpp)
+target_link_libraries(hdht-cli hdht)
+
 install (TARGETS hdhtd DESTINATION bin)
+install (TARGETS hdht-cli DESTINATION bin)
 install (TARGETS hdht DESTINATION ${LIB_INSTALL_DIR})
 install (FILES ${HEADERS} DESTINATION ${INCLUDE_INSTALL_DIR}/libhdht)

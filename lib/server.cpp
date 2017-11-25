@@ -93,13 +93,42 @@ public:
         log(LOG_INFO, "Received ClientHello from %s", client_address.to_string().c_str());
         peer->add_listening_address(client_address);
         register_client();
-        m_client_node = m_table->get_or_create_client_node(point);
-        if (m_client_node)
-            m_client_node->set_peer(peer);
 
-        // m_client_node can be nullptr here, in case the point falls outside the ranges controlled
-        // by this server
-        reply_client_hello(request_id, m_client_node != nullptr, m_client_node ? m_client_node->get_id() : NodeID());
+        // if this client double registered cause it got confused, just move it to the right place
+        protocol::ClientRegistrationResult result;
+        if (m_client_node) {
+            ServerNode* new_server = m_table->move_client(m_client_node, point);
+
+            // the client should attempt to reregister in the right place
+            // we skip the adopt_client() call, so the new server will reply with ClientCreated
+            // so the client will upload all the metadata from scratch
+            if (!new_server->is_local()) {
+                m_table->forget_client(m_client_node);
+                result = protocol::ClientRegistrationResult::WrongServer;
+            } else {
+                result = protocol::ClientRegistrationResult::ClientAlreadyExists;
+            }
+        } else {
+            m_client_node = m_table->get_or_create_client_node(point);
+            // m_client_node can be nullptr here, in case the point falls outside the ranges controlled
+            // by this server
+
+            if (m_client_node) {
+                m_client_node->set_peer(peer);
+
+                // if the table obtained an existing ClientNode (same NodeID/geocoordinates,
+                // different connection), we already have all the metadata
+                if (m_client_node->is_registered())
+                    result = protocol::ClientRegistrationResult::ClientAlreadyExists;
+                else
+                    result = protocol::ClientRegistrationResult::ClientCreated;
+                m_client_node->set_registered();
+            } else {
+                result = protocol::ClientRegistrationResult::WrongServer;
+            }
+        }
+
+        reply_client_hello(request_id, result, m_table->get_node_id_for_point(point));
     }
 
     virtual void handle_add_remote_range(uint64_t request_id, NodeIDRange range, net::Address address) override
@@ -137,13 +166,11 @@ public:
         client_node->set_all_metadata(std::move(metadata));
     }
 
-    virtual void handle_find_controlling_server(uint64_t request_id, NodeID id) override
+    virtual void handle_find_controlling_server(uint64_t request_id, NodeID node_id) override
     {
         check_client_or_server();
-        if (!m_table->is_valid_node_id(id))
-            throw rpc::RemoteError(EINVAL);
 
-        ServerNode *node = m_table->find_controlling_server(id);
+        ServerNode *node = m_table->find_controlling_server(node_id);
 
         if (node->is_local()) {
             reply_find_controlling_server(request_id, m_rpc->get_listening_address(), node->get_range());
@@ -152,7 +179,7 @@ public:
 
         auto proxy = dynamic_cast<RemoteServerNode*>(node)->get_proxy();
         auto self = shared_from_this();
-        proxy->invoke_find_controlling_server([self, request_id, id, this](rpc::Error *err, const net::Address& address, const NodeIDRange& subrange) {
+        proxy->invoke_find_controlling_server([self, request_id, node_id, this](rpc::Error *err, const net::Address& address, const NodeIDRange& subrange) {
             if (err) {
                 auto remote_err = dynamic_cast<rpc::RemoteError*>(err);
                 if (remote_err)
@@ -162,7 +189,7 @@ public:
                 return;
             }
 
-            ServerNode *node = m_table->find_controlling_server(id);
+            ServerNode *node = m_table->find_controlling_server(node_id);
             if (node->is_local()) {
                 // race condition: we became leader for this range while were asking someone about iter
                 reply_find_controlling_server(request_id, m_rpc->get_listening_address(), node->get_range());
@@ -184,7 +211,7 @@ public:
             auto subproxy = maybe_register_with_server(m_rpc, address);
             m_table->add_remote_server_node(subrange, subproxy);
             reply_find_controlling_server(request_id, address, subrange);
-        }, id);
+        }, node_id);
     }
 
     virtual void handle_set_location(uint64_t request_id, GeoPoint2D new_location) override
@@ -196,13 +223,13 @@ public:
 
         ServerNode *new_server = m_table->move_client(m_client_node, new_location);
         if (new_server->is_local()) {
-            reply_set_location(request_id, protocol::SetLocationResult::SameServer);
+            reply_set_location(request_id, protocol::SetLocationResult::SameServer, m_client_node->get_id());
             return;
         }
 
         auto proxy = static_cast<RemoteServerNode*>(new_server)->get_proxy();
         auto self = shared_from_this();
-        proxy->invoke_adopt_client([self, request_id, this](rpc::Error *err) {
+        proxy->invoke_adopt_client([self, request_id, new_location, this](rpc::Error *err) {
             ClientNode *client_node = m_client_node;
             m_client_node = nullptr;
 
@@ -219,7 +246,8 @@ public:
             }
 
             m_table->forget_client(client_node);
-            reply_set_location(request_id, protocol::SetLocationResult::DifferentServer);
+            reply_set_location(request_id, protocol::SetLocationResult::DifferentServer,
+                m_table->get_node_id_for_point(new_location));
         }, m_client_node->get_id(), m_client_node->get_address(), m_client_node->get_all_metadata());
     }
 
@@ -232,6 +260,19 @@ public:
 
         m_client_node->set_metadata(key, value);
         reply_set_metadata(request_id);
+    }
+
+    virtual void handle_get_metadata(uint64_t request_id, NodeID node_id, std::string key) override
+    {
+        check_client();
+        if (!m_table->is_valid_node_id(node_id))
+            throw rpc::RemoteError(EINVAL);
+
+        ClientNode *node = m_table->get_existing_client_node(node_id);
+        if (node == nullptr) // this node ID is not here, call find_controlling_server() first
+            throw rpc::RemoteError(ENOENT);
+
+        reply_get_metadata(request_id, m_client_node->get_metadata(key));
     }
 
     virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override

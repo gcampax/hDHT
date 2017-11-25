@@ -52,7 +52,7 @@ begin_class(Server)
     // returns true if the client was successfully registered with this server, false
     // if the client needs to go and find the server responsible for this client (calling
     // find_controlling_server) and register again
-    request(BoolAndNodeID, client_hello, net::Address, GeoPoint2D)
+    request(ClientRegistrationReply, client_hello, net::Address, GeoPoint2D)
 
     // add_remote_range: learn about this range, owned by another server (either the responding
     // one or a third party)
@@ -81,13 +81,15 @@ begin_class(Server)
     // the request returns whether if the client is still controlled by the same server
     // if the request fails the client should assume to be in a limbo state and start the
     // registration process from scratch
-    request(SetLocationResult, set_location, GeoPoint2D)
+    request(SetLocationReply, set_location, GeoPoint2D)
 
     // set the physical location of the calling client
     // this is called by a client only
     request(void, set_metadata, std::string, std::string)
 
     request(net::Address, find_client_address, NodeID)
+
+    request(std::string, get_metadata, NodeID, std::string)
 
     // search_clients: find all clients that are registered in the DHT in this
     // rectangle

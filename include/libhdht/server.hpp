@@ -53,6 +53,11 @@ public:
     ServerContext(uv::Loop& loop);
     ~ServerContext();
 
+    ServerContext(const ServerContext&) = delete;
+    ServerContext(ServerContext&&) = delete;
+    ServerContext& operator=(const ServerContext&) = delete;
+    ServerContext& operator=(ServerContext&&) = delete;
+
     // expose this server on this address
     void add_address(const net::Address& address);
 

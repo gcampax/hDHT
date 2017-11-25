@@ -26,10 +26,12 @@
 
 // public includes of the library
 #include "logging.hpp"
+#include "errors.hpp"
 #include "node_id.hpp"
 #include "net.hpp"
 #include "uv.hpp"
 #include "server.hpp"
+#include "client.hpp"
 
 // do not include uv.hpp or rpc.hpp here, they are not public
 

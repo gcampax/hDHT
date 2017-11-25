@@ -36,15 +36,24 @@ namespace protocol
 
 static const int MASTER_OBJECT_ID = 1;
 
-typedef std::tuple<net::Address, NodeIDRange> AddressAndRange;
-typedef std::tuple<bool, NodeID> BoolAndNodeID;
-typedef std::unordered_map<std::string, std::string> MetadataType;
-
 enum class SetLocationResult : uint8_t
 {
     SameServer,
     DifferentServer
 };
+
+enum class ClientRegistrationResult : uint8_t
+{
+    WrongServer,
+    ClientCreated,
+    ClientAlreadyExists
+};
+
+typedef std::tuple<net::Address, NodeIDRange> AddressAndRange;
+typedef std::tuple<ClientRegistrationResult, NodeID> ClientRegistrationReply;
+typedef std::tuple<SetLocationResult, NodeID> SetLocationReply;
+typedef std::unordered_map<std::string, std::string> MetadataType;
+
 
 // Step 1: forward declare all classes
 

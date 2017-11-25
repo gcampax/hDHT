@@ -39,35 +39,6 @@ namespace libhdht
 namespace rpc
 {
 
-class Error : public std::runtime_error
-{
-protected:
-    Error(const char* msg) : std::runtime_error(msg) {}
-};
-
-class NetworkError : public Error
-{
-private:
-    uv::Error m_error;
-
-public:
-    NetworkError(const uv::Error& error) : Error(error.what()), m_error(error) {}
-};
-
-class RemoteError : public Error
-{
-private:
-    uint32_t m_code;
-
-public:
-    RemoteError(uint32_t code) : Error(strerror(code)), m_code(code) {}
-
-    uint32_t code() const
-    {
-        return m_code;
-    }
-};
-
 // RPC-level protocol, as opposed to libhdht protocol
 namespace protocol
 {
@@ -290,7 +261,7 @@ class Context
 
 private:
     uv::Loop& m_loop;
-    std::vector<std::unique_ptr<uv::TCPSocket>> m_listening_sockets;
+    std::vector<std::unique_ptr<impl::Server>> m_listening_sockets;
     std::unordered_map<net::Address, std::weak_ptr<Peer>> m_known_peers;
     std::vector<std::function<void(std::shared_ptr<Peer>)>> m_stub_factories;
 
@@ -299,7 +270,8 @@ private:
 public:
     enum class AddressType { Static, Dynamic };
 
-    Context(uv::Loop& loop) : m_loop(loop) {}
+    Context(uv::Loop& loop);
+    ~Context();
 
     template<typename Callback>
     void add_stub_factory(Callback&& callback)
