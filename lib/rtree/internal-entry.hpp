@@ -20,26 +20,30 @@
 
 #pragma once
 
-#include <cstdint>
-#include <vector>
+#include <memory>
+
+#include "node-entry.hpp"
+#include "node.hpp"
+#include "rectangle.hpp"
 
 namespace libhdht {
 
-// An n-dimensional rectangle
-class Rectangle {
-  public:
-    Rectangle(std::vector<uint32_t> upper, std::vector<uint32_t> lower);
-    ~Rectangle();
-    std::vector<uint32_t> getCenter();
-    const std::vector<uint32_t> getLower() const;
-    const std::vector<uint32_t> getUpper() const;
-    bool intersects(const Rectangle& other);
-    bool contains(const Rectangle& other);
+namespace rtree {
 
+// A data entry for an internal RTree node.
+class InternalEntry : public NodeEntry {
+  public:
+    InternalEntry(Node* node);
+    ~InternalEntry();
+    std::shared_ptr<Rectangle> getMBR() override;
+    HilbertValue getLHV() override;
+    Node* getNode();
+    bool isLeafEntry() override;
   private:
-    std::vector<uint32_t> upper_;
-    std::vector<uint32_t> lower_;
+    Node* node_;
 };
+
+} // namespace rtree
 
 } // namespace libhdht
 

@@ -1,29 +1,54 @@
-#include "libhdht/rtree/rtree-helper.hpp"
+/*
+  libhdht: a library for Hilbert-curve based Distributed Hash Tables
+  Copyright 2017 Keshav Santhanam <santhanam.keshav@gmail.com>
+                 Giovanni Campagna <gcampagn@cs.stanford.edu>
+
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 3
+  of the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+
+#include "rtree-helper.hpp"
 
 #include <cmath>
 #include <memory>
 #include <vector>
+#include <cassert>
 
-#include "libhdht/rtree/node-entry.hpp"
-#include "libhdht/rtree/internal-entry.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include "node-entry.hpp"
+#include "internal-entry.hpp"
+#include "rectangle.hpp"
 
 namespace libhdht {
 
-std::vector<std::shared_ptr<NodeEntry>> RTreeHelper::search(
+namespace rtree {
+
+std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(
                                 std::shared_ptr<Rectangle> query, Node* root) {
-    std::vector<std::shared_ptr<NodeEntry>> results;
+    std::vector<std::shared_ptr<LeafEntry>> results;
     if (root->isLeaf()) {
         for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
+            assert(entry->isLeafEntry());
             if (entry->getMBR()->intersects(*query)) {
-                results.push_back(entry);
+                results.push_back(std::static_pointer_cast<LeafEntry>(entry));
             }
         }
     } else {
         for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
             if (entry->getMBR()->intersects(*query)) {
-                std::vector<std::shared_ptr<NodeEntry>> temp = search(query,
-                               std::dynamic_pointer_cast<InternalEntry> (entry)->getNode());
+                assert(!entry->isLeafEntry());
+                std::vector<std::shared_ptr<LeafEntry>> temp = search(query,
+                               std::static_pointer_cast<InternalEntry> (entry)->getNode());
                 results.reserve(results.size() + temp.size());
                 results.insert(results.end(), temp.begin(), temp.end());
             }
@@ -78,18 +103,16 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
             done = true;
 
             if (new_node != nullptr) {
-              std::shared_ptr<InternalEntry> node_entry(
-                  new InternalEntry(node));
-              std::shared_ptr<InternalEntry> new_node_entry(
-                  new InternalEntry(new_node));
+              std::shared_ptr<InternalEntry> node_entry = std::make_shared<InternalEntry>(node);
+              std::shared_ptr<InternalEntry> new_node_entry = std::make_shared<InternalEntry>(new_node);
               root = new Node();
               root->insertInternalEntry(node_entry);
               root->insertInternalEntry(new_node_entry);
             }
         } else {
             if (new_node != nullptr) {
-                std::shared_ptr<InternalEntry> new_node_entry(
-                    new InternalEntry(new_node));
+                std::shared_ptr<InternalEntry> new_node_entry =
+                    std::make_shared<InternalEntry>(new_node);
                 if (parent->hasCapacity()) {
                     parent->insertInternalEntry(new_node_entry);
                     parent->adjustLHV();
@@ -140,6 +163,8 @@ void RTreeHelper::distributeEntries(
         sibling->adjustLHV();
         sibling->adjustMBR();
     }
+}
+
 }
 
 } // namespace libhdht

@@ -18,11 +18,15 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "libhdht/rtree/node-entry.hpp"
+#include "node-entry.hpp"
 
 namespace libhdht {
 
+namespace rtree {
+
 NodeEntry::~NodeEntry() {
+
+}
 
 }
 

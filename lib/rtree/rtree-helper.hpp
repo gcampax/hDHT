@@ -20,20 +20,36 @@
 
 #pragma once
 
-#include <cstdint>
+#include <memory>
 #include <vector>
+
+#include "node.hpp"
+#include "node-entry.hpp"
+#include "leaf-entry.hpp"
+#include "rectangle.hpp"
 
 namespace libhdht {
 
-// Represents the Hilbert value of a point, which is defined as the length of
-// the Hilbert curve from the origin to the point.
-// 
-// TODO(keshav2): Flesh out definition
-class HilbertValue {
+namespace rtree {
+
+class RTreeHelper {
   public:
-    HilbertValue(std::vector<uint32_t> center);
+    static std::vector<std::shared_ptr<LeafEntry>> search(
+                                 std::shared_ptr<Rectangle> query, Node* root);
+
+    static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
+                            std::vector<Node*>& siblings);
+
+    static Node* handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
+                                std::vector<Node*>& siblings);
+
+    static void distributeEntries(
+                        std::vector<std::shared_ptr<NodeEntry>>& entries,
+                        std::vector<Node*>& siblings);
+
 };
 
-} // namespace libhdht
+}
 
+} // namespace libhdht
 

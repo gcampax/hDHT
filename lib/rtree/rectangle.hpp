@@ -20,23 +20,38 @@
 
 #pragma once
 
-#include <memory>
-
-#include "libhdht/rtree/hilbert-value.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include <cstdint>
+#include <vector>
 
 namespace libhdht {
 
-// A data entry for an RTree node. Can either belong to a leaf node
-// or an internal node.
-class NodeEntry {
+namespace rtree {
+
+typedef std::pair<uint64_t, uint64_t> Point;
+
+// An 2-dimensional rectangle
+class Rectangle {
   public:
-    virtual ~NodeEntry();
-    virtual std::shared_ptr<Rectangle> getMBR()=0;
-    virtual std::shared_ptr<HilbertValue> getLHV()=0;
-    virtual bool isLeafEntry()=0;
+    Rectangle(const Point& upper, const Point& lower);
+    ~Rectangle() {}
+    Point getCenter() const;
+    const Point& getLower() const
+    {
+        return lower_;
+    }
+    const Point& getUpper() const
+    {
+        return upper_;
+    }
+    bool intersects(const Rectangle& other) const;
+    bool contains(const Rectangle& other) const;
+
+  private:
+    Point upper_;
+    Point lower_;
 };
 
-} // namespace libhdht
+}
 
+} // namespace libhdht
 

@@ -59,14 +59,13 @@ add_library(hdht SHARED
 	lib/rpc.cpp
 	lib/server.cpp
 	lib/uv.cpp
-  lib/rtree/rtree.cpp
-  lib/rtree/rtree-helper.cpp
-  lib/rtree/node.cpp
-  lib/rtree/rectangle.cpp
-  lib/rtree/node-entry.cpp
-  lib/rtree/leaf-entry.cpp
-  lib/rtree/internal-entry.cpp
-  lib/rtree/hilbert-value.cpp
+	lib/rtree/rtree.cpp
+	lib/rtree/rtree-helper.cpp
+	lib/rtree/node.cpp
+	lib/rtree/rectangle.cpp
+	lib/rtree/node-entry.cpp
+	lib/rtree/leaf-entry.cpp
+	lib/rtree/internal-entry.cpp
 )
 target_include_directories(hdht PUBLIC "include/")
 target_compile_options(hdht PUBLIC ${UV_CFLAGS})

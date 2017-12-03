@@ -20,27 +20,49 @@
 
 #pragma once
 
-#include <memory>
+#include "node-entry.hpp"
+#include "rectangle.hpp"
 
-#include "libhdht/rtree/hilbert-value.hpp"
-#include "libhdht/rtree/node-entry.hpp"
-#include "libhdht/rtree/node.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include <memory>
 
 namespace libhdht {
 
-// A data entry for an internal RTree node.
-class InternalEntry : public NodeEntry {
+namespace rtree {
+
+// An RTree node
+class Node {
   public:
-    InternalEntry(Node* node);
-    ~InternalEntry();
+    typedef uint64_t HilbertValue;
+
+    Node();
+    ~Node();
+    bool isLeaf() const;
     std::shared_ptr<Rectangle> getMBR();
-    std::shared_ptr<HilbertValue> getLHV();
-    Node* getNode();
-    bool isLeafEntry();
+    HilbertValue getLHV();
+    void adjustMBR();
+    void adjustLHV();
+    const std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
+    void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
+    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+    Node* getParent();
+    Node* getPrevSibling();
+    Node* getNextSibling();
+    void setPrevSibling(Node* node);
+    void setNextSibling(Node* node);
+    std::vector<Node*> getCooperatingSiblings();
+    void clearEntries();
+    Node* findNextNode(HilbertValue hv);
+    bool hasCapacity() const;
+
   private:
-    Node* node_;
+    Node* prev_sibling_;
+    Node* next_sibling_;
+    std::shared_ptr<Rectangle> mbr_;
+    HilbertValue lhv_;
+    bool leaf_;
+    std::vector<std::shared_ptr<NodeEntry>> entries_;
 };
 
-} // namespace libhdht
+}
 
+} // namespace libhdht

@@ -18,56 +18,45 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "libhdht/rtree/rectangle.hpp"
+#include "rectangle.hpp"
 
 #include <cstdint>
 #include <vector>
 
 namespace libhdht {
 
-Rectangle::Rectangle(std::vector<uint32_t> upper, std::vector<uint32_t> lower)
+namespace rtree {
+
+Rectangle::Rectangle(const std::pair<uint64_t, uint64_t>& upper, const std::pair<uint64_t, uint64_t>& lower)
     : upper_(upper), lower_(lower) {
 
 }
 
-Rectangle::~Rectangle() {
-
+std::pair<uint64_t, uint64_t> Rectangle::getCenter() const {
+    return std::make_pair((upper_.first + lower_.first) / 2,
+                          (upper_.second + lower_.second) / 2);
 }
 
-std::vector<uint32_t> Rectangle::getCenter() {
-    std::vector<uint32_t> center;
-    for (uint32_t i = 0; i < this->upper_.size(); i++) {
-        center.push_back((this->upper_[i] + this->lower_[i]) / 2);
-    }
-    return center;
-}
-    
-const std::vector<uint32_t> Rectangle::getLower() const {
-    return lower_;
-}
-
-const std::vector<uint32_t> Rectangle::getUpper() const {
-    return upper_;
-}
- 
-bool Rectangle::intersects(const Rectangle& other) {
-    for (uint32_t i = 0; i < this->upper_.size(); i++) {
-        if (this->upper_[i] > other.lower_[i] ||
-            other.upper_[i] > this->lower_[i]) {
-            return false;
-        }
-    }
+bool Rectangle::intersects(const Rectangle& other) const {
+    if (upper_.first > other.lower_.first ||
+        other.upper_.first > lower_.first)
+        return false;
+    if (upper_.second > other.lower_.second ||
+        other.upper_.second > lower_.second)
+        return false;
     return true;
 }
 
-bool Rectangle::contains(const Rectangle& other) {
-    for (uint32_t i = 0; i < this->upper_.size(); i++) {
-        if (this->upper_[i] < other.upper_[i] ||
-            this->lower_[i] > other.lower_[i]) {
-            return false;
-        }
-    }
+bool Rectangle::contains(const Rectangle& other) const {
+    if (upper_.first < other.upper_.first ||
+        lower_.first > other.lower_.first)
+        return false;
+    if (upper_.second < other.upper_.second ||
+        lower_.second > other.lower_.second)
+        return false;
     return true;
+}
+
 }
 
 } // namespace libhdht

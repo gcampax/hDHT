@@ -21,30 +21,27 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 
-#include "libhdht/rtree/node.hpp"
-#include "libhdht/rtree/node-entry.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include "rectangle.hpp"
 
 namespace libhdht {
 
-class RTreeHelper {
+namespace rtree {
+
+// A data entry for an RTree node. Can either belong to a leaf node
+// or an internal node.
+class NodeEntry {
   public:
-    static std::vector<std::shared_ptr<NodeEntry>> search(
-                                 std::shared_ptr<Rectangle> query, Node* root);
+    typedef uint64_t HilbertValue;
 
-    static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
-                            std::vector<Node*>& siblings);
-
-    static Node* handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
-                                std::vector<Node*>& siblings);
-
-    static void distributeEntries(
-                        std::vector<std::shared_ptr<NodeEntry>>& entries,
-                        std::vector<Node*>& siblings);
-    
+    virtual ~NodeEntry();
+    virtual std::shared_ptr<Rectangle> getMBR() = 0;
+    virtual HilbertValue getLHV() = 0;
+    virtual bool isLeafEntry() = 0;
 };
 
+}
+
 } // namespace libhdht
+
 

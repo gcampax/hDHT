@@ -18,16 +18,18 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "libhdht/rtree/node.hpp"
+#include "node.hpp"
 
 #include <memory>
 
-#include "libhdht/rtree/rectangle.hpp"
+#include "rectangle.hpp"
 
 #define LEAF_CAPACITY 5
 #define INTERNAL_CAPACITY 5
 
 namespace libhdht {
+
+namespace rtree {
 
 Node::Node() {
 
@@ -45,7 +47,7 @@ std::shared_ptr<Rectangle> Node::getMBR() {
     return mbr_;
 }
 
-std::shared_ptr<HilbertValue> Node::getLHV() {
+Node::HilbertValue Node::getLHV() {
     return lhv_;
 }
 
@@ -103,7 +105,7 @@ void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
 
 }
 
-Node* Node::findNextNode(std::shared_ptr<HilbertValue> hv) {
+Node* Node::findNextNode(HilbertValue hv) {
     return nullptr;
 }
 
@@ -115,6 +117,8 @@ bool Node::hasCapacity() const {
     } else {
         return false;
     }
+}
+
 }
 
 } // namespace libhdht

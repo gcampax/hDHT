@@ -18,15 +18,18 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include "libhdht/rtree/rtree.hpp"
+#include "rtree.hpp"
 
-#include "libhdht/rtree/leaf-entry.hpp"
-#include "libhdht/rtree/node.hpp"
-#include "libhdht/rtree/rtree-helper.hpp"
+#include "leaf-entry.hpp"
+#include "node.hpp"
+#include "rtree-helper.hpp"
+#include "../hilbert-values.hpp"
 
 namespace libhdht {
 
-RTree::RTree() {
+namespace rtree {
+
+RTree::RTree(uint64_t N) : m_N(N) {
 
 }
 
@@ -34,9 +37,14 @@ RTree::~RTree() {
 
 }
 
-void RTree::insert(std::shared_ptr<Rectangle> r) {
-    std::shared_ptr<HilbertValue> hv(new HilbertValue(r->getCenter()));
-    std::shared_ptr<LeafEntry> entry(new LeafEntry(r, hv));
+RTree::HilbertValue RTree::hilbert_value_for_point(const Point& pt) const
+{
+    return hilbert_values::xy2d(m_N, pt.first, pt.second);
+}
+
+void RTree::insert(const Point& pt, void *data) {
+    HilbertValue hv(hilbert_value_for_point (pt));
+    std::shared_ptr<LeafEntry> entry = std::make_shared<LeafEntry>(pt, hv, data);
     std::vector<Node*> siblings;
 
     // I1. Find the appropriate leaf node
@@ -60,18 +68,19 @@ void RTree::insert(std::shared_ptr<Rectangle> r) {
     // TODO(keshav2)
 }
 
-std::vector<std::shared_ptr<NodeEntry>> RTree::search(
-                                            std::shared_ptr<Rectangle> query) {
+std::vector<std::shared_ptr<LeafEntry>> RTree::search(std::shared_ptr<Rectangle> query) {
     return RTreeHelper::search(query, root_);
 }
 
-Node* RTree::chooseLeaf(std::shared_ptr<HilbertValue> hv) {
+Node* RTree::chooseLeaf(HilbertValue hv) {
     Node* n = root_;
 
     while (!n->isLeaf()) {
         n = n->findNextNode(hv);
     }
     return n;
+}
+
 }
 
 } // namespace libhdht

@@ -21,25 +21,37 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
-#include "libhdht/rtree/hilbert-value.hpp"
-#include "libhdht/rtree/node-entry.hpp"
-#include "libhdht/rtree/rectangle.hpp"
+#include "node.hpp"
+#include "node-entry.hpp"
+#include "leaf-entry.hpp"
+#include "rectangle.hpp"
 
 namespace libhdht {
 
-// A data entry for an RTree leaf node.
-class LeafEntry : public NodeEntry {
+namespace rtree {
+
+class RTree {
   public:
-    LeafEntry(std::shared_ptr<Rectangle> mbr,
-              std::shared_ptr<HilbertValue> lhv);
-    ~LeafEntry();
-    std::shared_ptr<Rectangle> getMBR();
-    std::shared_ptr<HilbertValue> getLHV();
-    bool isLeafEntry();
+    typedef uint64_t HilbertValue;
+
+    // N: the maximum size in either dimension
+    RTree(uint64_t N);
+    ~RTree();
+    
+    void insert(const Point& r, void* data);
+    std::vector<std::shared_ptr<LeafEntry>> search(std::shared_ptr<Rectangle> query);
+
   private:
-    std::shared_ptr<Rectangle> mbr_;
-    std::shared_ptr<HilbertValue> lhv_;
+    HilbertValue hilbert_value_for_point(const std::pair<uint64_t, uint64_t>& pt) const;
+
+    uint64_t m_N;
+    Node* chooseLeaf(Node::HilbertValue hv);
+    Node* handleOverflow(Node* leaf);
+    Node* root_;
 };
+
+}
 
 } // namespace libhdht
