@@ -182,6 +182,7 @@ public:
         log(LOG_INFO, "Received ClientHello from %s", client_address.to_string().c_str());
         peer->add_listening_address(client_address);
         register_client();
+        point.canonicalize();
 
         // if this client double registered cause it got confused, just move it to the right place
         protocol::ClientRegistrationResult result;
@@ -333,6 +334,7 @@ public:
         if (m_client_node == nullptr)
             throw rpc::RemoteError(ENXIO);
 
+        new_location.canonicalize();
         log(LOG_INFO, "Moving client %s to %s", get_peer()->get_listening_address().to_string().c_str(),
             new_location.to_string().c_str());
 

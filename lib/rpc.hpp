@@ -173,6 +173,7 @@ public:
         std::shared_ptr<T> stub = std::make_shared<T>(shared_from_this(), object_id, std::forward<Args>(args)...);
         auto result = m_stubs.insert(std::make_pair(object_id, stub));
         assert(result.second);
+        (void)result.second;
         return stub;
     }
 

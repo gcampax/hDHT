@@ -19,9 +19,11 @@
 */
 
 #include "libhdht-private.hpp"
+#include "hilbert-values.hpp"
 
 #include <cctype>
 #include <exception>
+#include <endian.h>
 
 namespace libhdht {
 
@@ -55,10 +57,25 @@ NodeID::NodeID(const std::string& str)
     }
 }
 
+// The following bit manipulations are taken from Wikipedia
+
+
+
 NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
 {
-    // TODO do something
-    memset(m_parts, 0, sizeof(m_parts));
+    std::pair<uint64_t, uint64_t> fixed_point = point.to_fixed_point();
+    assert(resolution <= 104);
+
+    // resolution is the resolution of the hilbert curve, so
+    // the resolution of the grid is half of that
+    uint64_t shift = (64 - resolution);
+    uint64_t n = (1ULL << (resolution/2));
+    uint64_t d = hilbert_values::xy2d(n, fixed_point.first >> shift, fixed_point.second >> shift);
+
+    d <<= shift;
+    d = htobe64(d);
+    memcpy(m_parts, &d, sizeof(d));
+    memset(m_parts + sizeof(d), 0, sizeof(m_parts) - sizeof(d));
 }
 
 GeoPoint2D

@@ -53,7 +53,8 @@ Table::~Table()
 ServerNode*
 Table::find_controlling_server(const NodeID& node) const
 {
-    auto it = m_ranges.lower_bound(node);
+    auto it = m_ranges.upper_bound(node);
+    it--;
 
     // there should be no holes in the table
     assert(it->second->get_range().contains(node));

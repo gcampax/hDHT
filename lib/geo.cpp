@@ -31,6 +31,13 @@ to_radians(double deg) {
     return deg * M_PI / 180.0;
 }
 
+void
+GeoPoint2D::canonicalize()
+{
+    longitude = fmod(longitude + 180.0, 360.0) - 180.0;
+    latitude = latitude > 90.0 ? 90.0 : (latitude < -90.0 ? -90.0 : latitude);
+}
+
 double
 GeoPoint2D::distance(GeoPoint2D& one, GeoPoint2D& two)
 {
@@ -62,6 +69,62 @@ GeoPoint2D::to_string() const
         (latitude > 0 ? " north" : " south") << ", long: " << abs(longitude) <<
         (longitude > 0 ? " east" : " west");
     return ostr.str();
+}
+
+static uint64_t longitude_to_fixpoint(double longitude)
+{
+    uint64_t mask = ((1ULL << 52)-1);
+
+    assert(longitude >= -180 && longitude <= 180);
+
+    // Longitude is easy because -180 == +180, so we can divide by 360.0
+    // without losing precision
+    // then we extract the mantissa and we're done
+    // (this works because of IEEE754 double representation)
+
+    if (longitude == 180.0)
+        longitude = -180.0;
+    longitude = 1.0 + (longitude + 180.) / 360.0;
+
+    // For a double number between 1 and 2 (1 included 2 excluded)
+    // the mantissa is exactly is its fixpoint representation
+    assert(longitude >= 1.0 && longitude < 2.0);
+
+    uint64_t longitude_bits;
+    static_assert(sizeof(longitude) == sizeof(longitude_bits));
+    memcpy(&longitude_bits, &longitude, sizeof(longitude_bits));
+    return (longitude_bits & mask) << (64 - 52);
+}
+
+static uint64_t latitude_to_fixpoint(double latitude)
+{
+    uint64_t mask = ((1ULL << 52)-1);
+
+    assert(latitude >= -90 && latitude <= 90);
+
+    // Latitude is the annoying case
+    // -90 != 90 (they're at the opposite sides of Earth)
+    // so we cannot do the same bit trick as longitude
+
+    latitude = (latitude + 90.) / (180.0);
+    assert(latitude >= 0.0 && latitude <= 1.0);
+
+    return uint64_t(floor(latitude * mask)) << (64-52);
+}
+
+std::pair<uint64_t, uint64_t>
+GeoPoint2D::to_fixed_point() const
+{
+    assert(longitude_to_fixpoint(0) == 1ULL<<63);
+    assert(longitude_to_fixpoint(-180) == 0);
+    assert(longitude_to_fixpoint(180) == 0);
+    assert(latitude_to_fixpoint(-90) == 0);
+    // note that the last 3 nibbles stay zero because
+    // doubles don't have enough precision
+    assert(latitude_to_fixpoint(90) == 0xfffffffffffff000);
+
+    return std::make_pair(latitude_to_fixpoint(latitude),
+                          longitude_to_fixpoint(longitude));
 }
 
 }
