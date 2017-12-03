@@ -116,7 +116,7 @@ private:
 
                     // done
                     m_table->forget_client(client);
-                }, client->get_id(), client->get_address(), client->get_all_metadata());
+                }, client->get_id(), client->get_coordinates(), client->get_address(), client->get_all_metadata());
             });
 
             m_table->forget_server(node);
@@ -176,7 +176,7 @@ public:
         reply_server_hello(request_id);
     }
 
-    virtual void handle_client_hello(uint64_t request_id, net::Address client_address, GeoPoint2D point) override
+    virtual void handle_client_hello(uint64_t request_id, net::Address client_address, NodeID existing_node_id, GeoPoint2D point) override
     {
         auto peer = get_peer();
         log(LOG_INFO, "Received ClientHello from %s", client_address.to_string().c_str());
@@ -186,42 +186,38 @@ public:
 
         // if this client double registered cause it got confused, just move it to the right place
         protocol::ClientRegistrationResult result;
-        if (m_client_node) {
-            log(LOG_INFO, "Peer was already registered, moving it...");
-            ServerNode* new_server = m_table->move_client(m_client_node, point);
+        if (!m_client_node)
+            m_client_node = m_table->get_or_create_client_node(existing_node_id, point);
 
-            // the client should attempt to reregister in the right place
-            // we skip the adopt_client() call, so the new server will reply with ClientCreated
-            // so the client will upload all the metadata from scratch
-            if (!new_server->is_local()) {
-                m_table->forget_client(m_client_node);
-                result = protocol::ClientRegistrationResult::WrongServer;
+        if (m_client_node) {
+            log(LOG_INFO, "Assuming control of node %s", m_client_node->get_id().to_string().c_str());
+            m_client_node->set_peer(peer);
+
+            // if the table obtained an existing ClientNode (same NodeID/geocoordinates,
+            // different connection), we already have all the metadata
+            if (m_client_node->is_registered()) {
+                ServerNode* new_server = m_table->move_client(m_client_node, point);
+
+                // the client should attempt to reregister in the right place
+                // we skip the adopt_client() call, so the new server will reply with ClientCreated
+                // so the client will upload all the metadata from scratch
+                if (!new_server->is_local()) {
+                    m_table->forget_client(m_client_node);
+                    m_client_node = nullptr;
+                    result = protocol::ClientRegistrationResult::WrongServer;
+                } else {
+                    result = protocol::ClientRegistrationResult::ClientAlreadyExists;
+                }
             } else {
-                result = protocol::ClientRegistrationResult::ClientAlreadyExists;
+                result = protocol::ClientRegistrationResult::ClientCreated;
+                m_client_node->set_registered();
             }
         } else {
-            m_client_node = m_table->get_or_create_client_node(point);
-            // m_client_node can be nullptr here, in case the point falls outside the ranges controlled
-            // by this server
-
-            if (m_client_node) {
-                log(LOG_INFO, "Assuming control of node %s", m_client_node->get_id().to_string().c_str());
-                m_client_node->set_peer(peer);
-
-                // if the table obtained an existing ClientNode (same NodeID/geocoordinates,
-                // different connection), we already have all the metadata
-                if (m_client_node->is_registered())
-                    result = protocol::ClientRegistrationResult::ClientAlreadyExists;
-                else
-                    result = protocol::ClientRegistrationResult::ClientCreated;
-                m_client_node->set_registered();
-            } else {
-                log(LOG_INFO, "Rejecting registration, not our responsability");
-                result = protocol::ClientRegistrationResult::WrongServer;
-            }
+            log(LOG_INFO, "Rejecting registration, not our responsability");
+            result = protocol::ClientRegistrationResult::WrongServer;
         }
 
-        reply_client_hello(request_id, result, m_table->get_node_id_for_point(point));
+        reply_client_hello(request_id, result, m_client_node ? m_client_node->get_id() : NodeID());
     }
 
     virtual void handle_add_remote_range(uint64_t request_id, NodeIDRange range, net::Address address) override
@@ -256,19 +252,25 @@ public:
         reply_control_range(request_id);
     }
 
-    virtual void handle_adopt_client(uint64_t request_id, NodeID node_id, net::Address address, std::unordered_map<std::string, std::string> metadata) override
+    virtual void handle_adopt_client(uint64_t request_id, NodeID node_id, GeoPoint2D point, net::Address address, std::unordered_map<std::string, std::string> metadata) override
     {
         check_server();
-        if (!m_table->is_valid_node_id(node_id))
+        if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 
-        ClientNode *client_node = m_table->get_or_create_client_node(node_id);
+        ClientNode *client_node = m_table->get_or_create_client_node(node_id, point);
         if (client_node == nullptr)
             throw rpc::RemoteError(EACCES);
 
         auto peer = m_rpc->get_peer(address);
         client_node->set_peer(peer);
         client_node->set_all_metadata(std::move(metadata));
+    }
+
+    virtual void handle_find_server_for_point(uint64_t request_id, GeoPoint2D point) override
+    {
+        check_client();
+        handle_find_controlling_server(request_id, m_table->get_node_id_for_point(point));
     }
 
     virtual void handle_find_controlling_server(uint64_t request_id, NodeID node_id) override
@@ -372,7 +374,8 @@ public:
             m_table->forget_client(client_node);
             reply_set_location(request_id, protocol::SetLocationResult::DifferentServer,
                 m_table->get_node_id_for_point(new_location));
-        }, m_client_node->get_id(), m_client_node->get_address(), m_client_node->get_all_metadata());
+        }, m_client_node->get_id(), m_client_node->get_coordinates(),
+        m_client_node->get_address(), m_client_node->get_all_metadata());
     }
 
     virtual void handle_set_metadata(uint64_t request_id, std::string key, std::string value) override
@@ -391,7 +394,7 @@ public:
     virtual void handle_get_metadata(uint64_t request_id, NodeID node_id, std::string key) override
     {
         check_client();
-        if (!m_table->is_valid_node_id(node_id))
+        if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 
         ClientNode *node = m_table->get_existing_client_node(node_id);
@@ -406,11 +409,11 @@ public:
     virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override
     {
         check_client();
-        if (!m_table->is_valid_node_id(node_id))
+        if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 
-        ClientNode *node = m_table->get_or_create_client_node(node_id);
-        if (node == nullptr) // this node ID is not here, call find_controlling_server() first
+        ClientNode *node = m_table->get_existing_client_node(node_id);
+        if (node == nullptr) // this node ID is not here or does not exist, call find_controlling_server() first
             throw rpc::RemoteError(ENOENT);
 
         assert(node->get_peer());

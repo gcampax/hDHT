@@ -54,10 +54,6 @@ public:
         return m_resolution;
     }
 
-    bool is_valid_node_id(const NodeID& id) const
-    {
-        return id.has_mask(m_resolution);
-    }
     bool is_valid_range(const NodeIDRange& id) const
     {
         return id.has_mask(m_resolution);
@@ -69,12 +65,7 @@ public:
     }
 
     // Client management
-    ClientNode *get_or_create_client_node(const GeoPoint2D& pt)
-    {
-        return get_or_create_client_node(get_node_id_for_point(pt));
-    }
-
-    ClientNode *get_or_create_client_node(const NodeID& id);
+    ClientNode *get_or_create_client_node(const NodeID& id, const GeoPoint2D& pt);
     ClientNode *get_existing_client_node(const NodeID& id);
     ServerNode *move_client(ClientNode *, const GeoPoint2D&);
     void forget_client(ClientNode *);

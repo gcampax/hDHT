@@ -143,7 +143,7 @@ ClientContext::update_current_server()
     m_is_updating_location = true;
     auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
 
-    proxy->invoke_find_controlling_server([this](rpc::Error* err, net::Address server_address, const NodeIDRange&) {
+    proxy->invoke_find_server_for_point([this](rpc::Error* err, net::Address server_address, const NodeIDRange&) {
         if (err) {
             log(LOG_WARNING, "Failed to find own controlling server: %s", err->what());
 
@@ -162,7 +162,7 @@ ClientContext::update_current_server()
         // we must register with this server regardless of what the server knows about us
         // so that it will treat our connection as a client connection and not reject our RPC
         do_register();
-    }, m_node_id);
+    }, m_coordinates);
 }
 
 void
@@ -170,10 +170,6 @@ ClientContext::do_register()
 {
     assert(!m_is_registered);
     assert(!m_is_updating_location);
-
-    // if we were ever registered, try to register again with the old coordinates
-    // which will prevent us from having to reupload all the metadata anew
-    GeoPoint2D coordinates = m_was_registered ? m_node_id.to_point() : m_coordinates;
 
     auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
     proxy->invoke_client_hello([this](rpc::Error* err, protocol::ClientRegistrationResult result, NodeID node_id) {
@@ -212,7 +208,7 @@ ClientContext::do_register()
                 do_set_location();
             flush_metadata_changes(MetadataFlushMode::OnlyChanges);
         }
-    }, m_rpc->get_listening_address(), coordinates);
+    }, m_rpc->get_listening_address(), m_node_id, m_coordinates);
 }
 
 void

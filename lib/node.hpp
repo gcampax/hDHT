@@ -38,11 +38,12 @@ class ClientNode
 {
     std::shared_ptr<rpc::Peer> m_peer;
     NodeID m_node_id;
+    GeoPoint2D m_coordinates;
     mutable std::unordered_map<std::string, std::string> m_metadata;
     bool m_registered = false;
 
 public:
-    ClientNode(const NodeID& id) : m_node_id(id) {}
+    ClientNode(const NodeID& id, const GeoPoint2D& coordinates) : m_node_id(id), m_coordinates(coordinates) {}
     ~ClientNode() {}
 
     bool is_registered() const
@@ -63,9 +64,13 @@ public:
     {
         m_node_id = id;
     }
-    GeoPoint2D get_coordinates() const
+    const GeoPoint2D& get_coordinates() const
     {
-        return m_node_id.to_point();
+        return m_coordinates;
+    }
+    void set_coordinates(const GeoPoint2D& coordinates)
+    {
+        m_coordinates = coordinates;
     }
 
     const std::unordered_map<std::string, std::string> get_all_metadata() const
@@ -139,9 +144,10 @@ class LocalServerNode : public ServerNode
     // the clients that are registered with this server
     // TODO replace with RTree
     std::unordered_set<ClientNode*> m_clients;
+    uint8_t m_resolution;
 
 public:
-    LocalServerNode(const NodeIDRange& id);
+    LocalServerNode(const NodeIDRange& id, uint8_t resolution);
 
     virtual LocalServerNode* split() override;
 

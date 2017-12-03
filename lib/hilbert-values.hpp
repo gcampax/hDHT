@@ -61,7 +61,7 @@ T xy2d(T n, T x, T y) {
 
 //convert d to (x,y)
 template<typename T>
-T d2xy(T n, T d, T& x, T& y) {
+void d2xy(T n, T d, T& x, T& y) {
     T rx, ry, s, t=d;
     x = y = 0;
     for (s=1; s<n; s*=2) {

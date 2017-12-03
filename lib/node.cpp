@@ -30,6 +30,7 @@ namespace libhdht {
 NodeID::NodeID()
 {
     memset(m_parts, 0, sizeof(m_parts));
+    assert(!is_valid());
 }
 
 static inline uint8_t
@@ -55,11 +56,9 @@ NodeID::NodeID(const std::string& str)
 
         m_parts[i] = hex_to_int(c1) << 4 | hex_to_int(c2);
     }
+
+    assert(is_valid() || is_all_zeros());
 }
-
-// The following bit manipulations are taken from Wikipedia
-
-
 
 NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
 {
@@ -76,13 +75,30 @@ NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
     d = htobe64(d);
     memcpy(m_parts, &d, sizeof(d));
     memset(m_parts + sizeof(d), 0, sizeof(m_parts) - sizeof(d));
+
+    set_valid();
 }
 
-GeoPoint2D
-NodeID::to_point() const
+std::pair<uint64_t, uint64_t>
+NodeID::to_point(uint8_t resolution) const
 {
-    // TODO: do something
-    return GeoPoint2D{ 0, 0 };
+    assert(resolution <= 128);
+
+    // resolution is the resolution of the hilbert curve, so
+    // the resolution of the grid is half of that
+
+    uint64_t x, y;
+    uint64_t shift = (64 - resolution);
+    uint64_t n = (1ULL << (resolution/2));
+    uint64_t d;
+    memcpy(&d, m_parts, sizeof(d));
+    d = be64toh (d);
+    d >>= shift;
+    hilbert_values::d2xy(n, d, x, y);
+    x <<= shift;
+    y <<= shift;
+
+    return std::make_pair(x, y);
 }
 
 bool
@@ -103,6 +119,16 @@ NodeID::has_mask(uint8_t mask) const
             return false;
     }
 
+    return true;
+}
+
+bool
+NodeID::is_all_zeros() const
+{
+    for (size_t i = 0; i < sizeof(m_parts); i++) {
+        if (m_parts[i] != 0)
+            return false;
+    }
     return true;
 }
 
@@ -177,13 +203,14 @@ ServerNode::ServerNode(const NodeIDRange& id_range) : m_range(id_range)
 {}
 
 
-LocalServerNode::LocalServerNode(const NodeIDRange& range) : ServerNode(range)
+LocalServerNode::LocalServerNode(const NodeIDRange& range, uint8_t resolution)
+    : ServerNode(range), m_resolution(resolution)
 {}
 
 LocalServerNode *
 LocalServerNode::split()
 {
-    LocalServerNode *new_node = new LocalServerNode(m_range);
+    LocalServerNode *new_node = new LocalServerNode(m_range, m_resolution);
     try {
         m_range.increase_mask();
         new_node->m_range.increase_mask();

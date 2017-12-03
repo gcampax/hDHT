@@ -66,8 +66,8 @@ GeoPoint2D::to_string() const
 {
     std::ostringstream ostr;
     ostr << std::setprecision(5) << "lat: " << abs(latitude) <<
-        (latitude > 0 ? " north" : " south") << ", long: " << abs(longitude) <<
-        (longitude > 0 ? " east" : " west");
+        (latitude >= 0 ? " north" : " south") << ", long: " << abs(longitude) <<
+        (longitude >= 0 ? " east" : " west");
     return ostr.str();
 }
 

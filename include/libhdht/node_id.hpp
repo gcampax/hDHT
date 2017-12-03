@@ -48,10 +48,25 @@ public:
     NodeID(const std::string& str);
     NodeID(const GeoPoint2D&, uint8_t resolution);
 
-    GeoPoint2D to_point() const;
+    std::pair<uint64_t, uint64_t> to_point(uint8_t resolution) const;
     // check that the low 160-mask bits are all 0
     // (meaning that this is a valid node id in a DHT of resolution mask)
     bool has_mask(uint8_t mask) const;
+    bool is_all_zeros() const;
+
+    // the last bit in the node id is a flag, that is zero for an
+    // uninitialized node id and 1 otherwise
+    // (note that NodeIDs that are used by NodeIDRange don't conform
+    // to this specification)
+    bool is_valid() const
+    {
+        // the last
+        return m_parts[size-1] & 0x1;
+    }
+    void set_valid()
+    {
+        m_parts[size-1] |= 0x1;
+    }
 
     int bit_at(uint8_t pos) const
     {

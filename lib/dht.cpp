@@ -180,7 +180,7 @@ Table::add_local_server_node(const NodeIDRange& range, LocalServerNode *previous
     if (range.contains(*current_range)) {
         LocalServerNode *new_node;
         if (previous == nullptr)
-            new_node = new LocalServerNode(range);
+            new_node = new LocalServerNode(range, m_resolution);
         else
             new_node = previous;
 
@@ -262,7 +262,7 @@ Table::add_local_server_node(const NodeIDRange& range, LocalServerNode *previous
             // replace the RemoteServerNode with a local one
             ServerNode *new_node;
             if (previous == nullptr)
-                new_node = new LocalServerNode(range);
+                new_node = new LocalServerNode(range, m_resolution);
             else
                 new_node = previous;
             delete current_node;
@@ -272,8 +272,11 @@ Table::add_local_server_node(const NodeIDRange& range, LocalServerNode *previous
 }
 
 ClientNode*
-Table::get_or_create_client_node(const NodeID &id)
+Table::get_or_create_client_node(const NodeID& id, const GeoPoint2D& pt)
 {
+    if (!id.is_valid())
+        return get_or_create_client_node(get_node_id_for_point(pt), pt);
+
     auto it = m_clients.find(id);
     if (it != m_clients.end())
         return it->second;
@@ -284,7 +287,7 @@ Table::get_or_create_client_node(const NodeID &id)
 
     LocalServerNode *local = static_cast<LocalServerNode*>(server_node);
     local->prepare_insert();
-    ClientNode *new_node = new ClientNode(id);
+    ClientNode *new_node = new ClientNode(id, pt);
 
     try {
         m_clients.insert(std::make_pair(id, new_node));
@@ -312,6 +315,8 @@ Table::move_client(ClientNode* node, const GeoPoint2D & pt)
 {
     ServerNode *existing = find_controlling_server(node->get_id());
     assert(existing->is_local());
+
+    node->set_coordinates(pt);
 
     NodeID new_node_id = get_node_id_for_point(pt);
     if (new_node_id == node->get_id())
