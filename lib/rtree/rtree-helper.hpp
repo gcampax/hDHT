@@ -22,10 +22,12 @@
 
 #include <memory>
 #include <vector>
+#include <cassert>
 
 #include "node.hpp"
 #include "node-entry.hpp"
 #include "leaf-entry.hpp"
+#include "internal-entry.hpp"
 #include "rectangle.hpp"
 
 namespace libhdht {
@@ -47,6 +49,21 @@ class RTreeHelper {
                         std::vector<std::shared_ptr<NodeEntry>>& entries,
                         std::vector<Node*>& siblings);
 
+    template<typename Callback>
+    static void foreach_entry(Node* root, const Callback& callback)
+    {
+        if (root->isLeaf()) {
+            for (const auto& entry : root->getEntries()) {
+                assert(entry->isLeafEntry());
+                callback(std::static_pointer_cast<LeafEntry>(entry));
+            }
+        } else {
+            for (const auto& entry : root->getEntries()) {
+                assert(!entry->isLeafEntry());
+                foreach_entry(std::static_pointer_cast<InternalEntry>(entry)->getNode(), callback);
+            }
+        }
+    }
 };
 
 }

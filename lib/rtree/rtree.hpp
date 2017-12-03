@@ -28,6 +28,8 @@
 #include "leaf-entry.hpp"
 #include "rectangle.hpp"
 
+#include "rtree-helper.hpp"
+
 namespace libhdht {
 
 namespace rtree {
@@ -36,20 +38,59 @@ class RTree {
   public:
     typedef uint64_t HilbertValue;
 
-    // N: the maximum size in either dimension
-    RTree(uint64_t N);
-    ~RTree();
-    
+    // max_dimension: the maximum size in either dimension
+    RTree(uint64_t max_dimension) : m_max_dimension(max_dimension), m_size(0), root_(nullptr) {}
+    ~RTree() {
+        delete root_;
+    }
+
+    RTree(const RTree&) = delete;
+    RTree& operator=(const RTree&) = delete;
+    RTree(RTree&& from) : m_max_dimension(from.m_max_dimension), m_size(from.m_size), root_(from.root_) {
+        from.root_ = nullptr;
+    }
+    RTree& operator=(RTree&& from) {
+        delete root_;
+        m_max_dimension = from.m_max_dimension;
+        m_size = from.m_size;
+        root_ = from.root_;
+        from.root_ = nullptr;
+        from.m_size = 0;
+        return *this;
+    }
+    void swap(RTree& with)
+    {
+        std::swap(m_size, with.m_size);
+        std::swap(m_max_dimension, with.m_max_dimension);
+        std::swap(root_, with.root_);
+    }
+
+    size_t size() const
+    {
+        return m_size;
+    }
+
     void insert(const Point& r, void* data);
-    std::vector<std::shared_ptr<LeafEntry>> search(std::shared_ptr<Rectangle> query);
+    std::vector<std::shared_ptr<LeafEntry>> search(std::shared_ptr<Rectangle> query)
+    {
+        return RTreeHelper::search(query, root_);
+    }
+
+    template<typename Callback>
+    void foreach_entry(const Callback& callback) const
+    {
+        RTreeHelper::foreach_entry(root_, callback);
+    }
 
   private:
     HilbertValue hilbert_value_for_point(const std::pair<uint64_t, uint64_t>& pt) const;
 
-    uint64_t m_N;
+    uint64_t m_max_dimension;
+    size_t m_size; // the number of elements
     Node* chooseLeaf(Node::HilbertValue hv);
     Node* handleOverflow(Node* leaf);
     Node* root_;
+
 };
 
 }

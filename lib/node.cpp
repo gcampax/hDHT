@@ -204,7 +204,7 @@ ServerNode::ServerNode(const NodeIDRange& id_range) : m_range(id_range)
 
 
 LocalServerNode::LocalServerNode(const NodeIDRange& range, uint8_t resolution)
-    : ServerNode(range), m_resolution(resolution)
+    : ServerNode(range), m_clients(1ULL << (resolution/2)), m_resolution(resolution)
 {}
 
 LocalServerNode *
@@ -216,13 +216,15 @@ LocalServerNode::split()
         new_node->m_range.increase_mask();
         new_node->m_range.from().set_bit_at(m_range.mask()-1, 1);
 
-        std::unordered_set<ClientNode*> left, right;
-        for (ClientNode* client : m_clients) {
+        rtree::RTree left(1ULL << (m_resolution/2)), right(1ULL << (m_resolution/2));
+        m_clients.foreach_entry([&left, &right, this](const std::shared_ptr<rtree::LeafEntry>& entry) -> void {
+            ClientNode *client = static_cast<ClientNode*>(entry->get_data());
+            auto pt = client->get_id().to_point(m_resolution);
             if (client->get_id().bit_at(m_range.mask()-1))
-                right.insert(client);
+                right.insert(pt, client);
             else
-                left.insert(client);
-        }
+                left.insert(pt, client);
+        });
         std::swap(m_clients, left);
         std::swap(new_node->m_clients, right);
 
@@ -236,7 +238,16 @@ LocalServerNode::split()
 void
 LocalServerNode::adopt_nodes(LocalServerNode *from)
 {
-    m_clients.insert(from->m_clients.begin(), from->m_clients.end());
+    from->foreach_client([this](ClientNode *client) {
+        add_client(client);
+    });
+}
+
+void
+LocalServerNode::add_client(ClientNode *client)
+{
+    auto pt = client->get_id().to_point(m_resolution);
+    m_clients.insert(pt, client);
 }
 
 

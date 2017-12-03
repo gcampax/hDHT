@@ -29,17 +29,9 @@ namespace libhdht {
 
 namespace rtree {
 
-RTree::RTree(uint64_t N) : m_N(N) {
-
-}
-
-RTree::~RTree() {
-
-}
-
 RTree::HilbertValue RTree::hilbert_value_for_point(const Point& pt) const
 {
-    return hilbert_values::xy2d(m_N, pt.first, pt.second);
+    return hilbert_values::xy2d(m_max_dimension, pt.first, pt.second);
 }
 
 void RTree::insert(const Point& pt, void *data) {
@@ -66,10 +58,8 @@ void RTree::insert(const Point& pt, void *data) {
 
     // I4. Grow tree taller
     // TODO(keshav2)
-}
 
-std::vector<std::shared_ptr<LeafEntry>> RTree::search(std::shared_ptr<Rectangle> query) {
-    return RTreeHelper::search(query, root_);
+    m_size ++;
 }
 
 Node* RTree::chooseLeaf(HilbertValue hv) {

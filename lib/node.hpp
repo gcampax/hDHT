@@ -31,6 +31,8 @@
 #include <libhdht/net.hpp>
 #include "protocol.hpp"
 
+#include "rtree/rtree.hpp"
+
 namespace libhdht {
 
 // A client (ie, a mobile phone with a real-world location) in the DHT
@@ -142,8 +144,7 @@ public:
 class LocalServerNode : public ServerNode
 {
     // the clients that are registered with this server
-    // TODO replace with RTree
-    std::unordered_set<ClientNode*> m_clients;
+    rtree::RTree m_clients;
     uint8_t m_resolution;
 
 public:
@@ -165,22 +166,20 @@ public:
 
     void prepare_insert()
     {
-        m_clients.reserve(m_clients.size()+1);
+        // TODO
     }
-    void add_client(ClientNode *client)
-    {
-        m_clients.insert(client);
-    }
+    void add_client(ClientNode *client);
     void remove_client(ClientNode *client)
     {
-        m_clients.erase(client);
+        // TODO
     }
 
     template<typename Callback>
-    void foreach_client(Callback&& callback) const
+    void foreach_client(const Callback& callback) const
     {
-        for (auto client : m_clients)
-            callback(client);
+        m_clients.foreach_entry([&callback](std::shared_ptr<rtree::LeafEntry> entry) {
+            callback(static_cast<ClientNode*>(entry->get_data()));
+        });
     }
 };
 
