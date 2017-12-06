@@ -142,17 +142,21 @@ template<typename... Args>
 struct pack_marshaller {
 };
 
+template<typename Type, typename Enable = void>
+struct single_marshaller
+{};
+
 template<typename First, typename... Rest>
 struct pack_marshaller<First, Rest...> {
     static void to_buffer(BufferWriter& writer, const First& first, const Rest&... rest)
     {
-        pack_marshaller<First>::to_buffer(writer, first);
+        single_marshaller<First>::to_buffer(writer, first);
         pack_marshaller<Rest...>::to_buffer(writer, rest...);
     }
 
     static std::tuple<First, Rest...> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        First first = pack_marshaller<First>::from_buffer(peer, reader);
+        First first = single_marshaller<First>::from_buffer(peer, reader);
         std::tuple<Rest...> rest = pack_marshaller<Rest...>::from_buffer(peer, reader);
         return std::tuple_cat(std::make_tuple(std::move(first)), std::move(rest));
     }
@@ -184,10 +188,6 @@ struct pack_marshaller<void> {
         // nothing to do
     }
 };
-
-template<typename Type, typename Enable = void>
-struct single_marshaller
-{};
 
 template<typename Type>
 struct single_marshaller<Type,
