@@ -50,7 +50,7 @@ set_log_function(int(*function)(int, const char*, va_list))
 static void(*logger)(int, const char*, va_list) = vsyslog;
 
 void
-set_log_functio(void(*function)(int, const char*, va_list))
+set_log_function(void(*function)(int, const char*, va_list))
 {
     logger = function;
 }

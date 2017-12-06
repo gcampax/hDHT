@@ -26,7 +26,11 @@
 
 namespace libhdht {
 
+#ifdef HAVE_SYSTEMD
 void set_log_function(int(*function)(int, const char*, va_list));
+#else
+void set_log_function(void(*function)(int, const char*, va_list));
+#endif
 void log(int level, const char* msg, ...) __attribute__((format(printf, 2, 3)));
 
 }
