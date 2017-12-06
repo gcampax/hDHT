@@ -19,8 +19,8 @@
 */
 
 #include "libhdht-private.hpp"
+#include "endian.hpp"
 
-#include <endian.h>
 #include <cassert>
 
 namespace libhdht

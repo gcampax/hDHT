@@ -18,50 +18,27 @@
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
-#include <libhdht/libhdht.hpp>
+#pragma once
 
-#ifdef HAVE_SYSTEMD
-#include <systemd/sd-journal.h>
-#endif
+#ifdef __APPLE__
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
 
-namespace libhdht {
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
 
-void init()
-{
-    // initialize the library
-    // eg initialize gettext, or gmp, or openssl, or whatever else we need
-}
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
 
-void fini()
-{
-    // release any resource associated with the library
-}
-
-#ifdef HAVE_SYSTEMD
-static int(*logger)(int, const char*, va_list) = sd_journal_printv;
-
-void
-set_log_function(int(*function)(int, const char*, va_list))
-{
-    logger = function;
-}
-
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
 #else
-static void(*logger)(int, const char*, va_list) = vsyslog;
-
-void
-set_log_functio(void(*function)(int, const char*, va_list))
-{
-    logger = function;
-}
+#include <endian.h>
 #endif
 
-void log(int level, const char* msg, ...)
-{
-    va_list va;
-    va_start(va, msg);
-    logger(level, msg, va);
-    va_end(va);
-}
-
-}

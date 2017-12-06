@@ -64,7 +64,7 @@ const std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
 }
 
 Node* Node::getParent() {
-    return getParent();
+    return parent_;
 }
 
 Node* Node::getPrevSibling() {

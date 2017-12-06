@@ -20,10 +20,10 @@
 
 #include "libhdht-private.hpp"
 #include "hilbert-values.hpp"
+#include "endian.hpp"
 
 #include <cctype>
 #include <exception>
-#include <endian.h>
 
 namespace libhdht {
 

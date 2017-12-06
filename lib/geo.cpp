@@ -65,8 +65,8 @@ std::string
 GeoPoint2D::to_string() const
 {
     std::ostringstream ostr;
-    ostr << std::setprecision(5) << "lat: " << abs(latitude) <<
-        (latitude >= 0 ? " north" : " south") << ", long: " << abs(longitude) <<
+    ostr << std::setprecision(5) << "lat: " << std::abs(latitude) <<
+        (latitude >= 0 ? " north" : " south") << ", long: " << std::abs(longitude) <<
         (longitude >= 0 ? " east" : " west");
     return ostr.str();
 }
@@ -91,7 +91,7 @@ static uint64_t longitude_to_fixpoint(double longitude)
     assert(longitude >= 1.0 && longitude < 2.0);
 
     uint64_t longitude_bits;
-    static_assert(sizeof(longitude) == sizeof(longitude_bits));
+    static_assert(sizeof(longitude) == sizeof(longitude_bits), "longitude bits");
     memcpy(&longitude_bits, &longitude, sizeof(longitude_bits));
     return (longitude_bits & mask) << (64 - 52);
 }

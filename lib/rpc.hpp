@@ -102,7 +102,8 @@ private:
     std::unordered_map<uint64_t, OutstandingRequest> m_requests;
     uint64_t m_next_stub_id = 0;
     uint64_t m_next_req_id = 0;
-    unsigned m_next_connection = 0;
+    // NOTE(keshav2): Commented out to avoid unused warning
+    // unsigned m_next_connection = 0;
 
     impl::Connection* get_connection();
     void destroy_stub(uint64_t stub_id)

@@ -55,6 +55,7 @@ class Node {
     bool hasCapacity() const;
 
   private:
+    Node* parent_;
     Node* prev_sibling_;
     Node* next_sibling_;
     std::shared_ptr<Rectangle> mbr_;
