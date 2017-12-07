@@ -27,7 +27,14 @@ namespace libhdht {
 
 namespace rtree {
 
-Rectangle::Rectangle(const std::pair<uint64_t, uint64_t>& upper, const std::pair<uint64_t, uint64_t>& lower)
+Rectangle::Rectangle()
+    : upper_(std::pair<uint64_t, uint64_t>(0, 0)),
+      lower_(std::pair<uint64_t, uint64_t>(0, 0)) {
+
+}
+
+Rectangle::Rectangle(const std::pair<uint64_t, uint64_t>& upper,
+                     const std::pair<uint64_t, uint64_t>& lower)
     : upper_(upper), lower_(lower) {
 
 }

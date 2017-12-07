@@ -32,6 +32,7 @@ typedef std::pair<uint64_t, uint64_t> Point;
 // An 2-dimensional rectangle
 class Rectangle {
   public:
+    Rectangle();
     Rectangle(const Point& upper, const Point& lower);
     ~Rectangle() {}
     Point getCenter() const;
