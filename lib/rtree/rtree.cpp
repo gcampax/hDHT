@@ -41,6 +41,12 @@ void RTree::insert(const Point& pt, void *data) {
 
     // Find the appropriate leaf node
     Node* leaf = RTreeHelper::chooseLeaf(this->root_, hv);
+    if (leaf == nullptr) {
+        leaf = new Node();
+        leaf->setLeaf(true);
+        root_ = leaf;
+    }
+
 
     // Insert r in a leaf node
     Node* new_leaf = nullptr;
@@ -51,7 +57,7 @@ void RTree::insert(const Point& pt, void *data) {
     } else {
         new_leaf = RTreeHelper::handleOverflow(leaf, entry, siblings);
     }
-    
+
     // Propogate changes upward
     this->root_ = RTreeHelper::adjustTree(this->root_, leaf, new_leaf,
                                           siblings);

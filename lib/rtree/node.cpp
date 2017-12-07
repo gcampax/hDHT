@@ -45,6 +45,10 @@ bool Node::isLeaf() const {
     return leaf_;
 }
 
+void Node::setLeaf(bool status) {
+    leaf_ = status;
+}
+
 std::shared_ptr<Rectangle> Node::getMBR() {
     return mbr_;
 }
@@ -83,6 +87,7 @@ void Node::adjustMBR() {
 void Node::adjustLHV() {
     if (entries_.size() == 0) {
         lhv_ = kDefaultHilbertValue;
+        return;
     }
 
     const HilbertValue current_lhv = entries_[0]->getLHV();
@@ -141,12 +146,14 @@ void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is leaf
     // TODO(keshav2): Assert node has capacity
     const HilbertValue entry_lhv = entry->getLHV();
-    for (auto it = entries_.begin(); it != entries_.end(); it++) {
+    auto it = entries_.begin();
+    for (; it != entries_.end(); it++) {
         if (entry_lhv < (*it)->getLHV()) {
             entries_.insert(it, entry);
             return;
         }
     }
+    entries_.insert(it, entry);
 }
 
 void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {

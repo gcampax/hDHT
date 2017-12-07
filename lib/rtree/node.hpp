@@ -37,6 +37,7 @@ class Node {
     Node();
     ~Node();
     bool isLeaf() const;
+    void setLeaf(bool status);
     std::shared_ptr<Rectangle> getMBR();
     HilbertValue getLHV();
     void adjustMBR();

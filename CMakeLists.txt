@@ -84,6 +84,8 @@ add_executable(hdht-cli client/main.cpp)
 target_link_libraries(hdht-cli hdht)
 
 add_executable(test-hilbert-values tests/test-hilbert-values.cpp)
+add_executable(test-rtree tests/test-rtree.cpp)
+target_link_libraries(test-rtree hdht)
 
 install (TARGETS hdhtd DESTINATION bin)
 install (TARGETS hdht-cli DESTINATION bin)

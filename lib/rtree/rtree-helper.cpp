@@ -34,13 +34,17 @@ namespace libhdht {
 namespace rtree {
 
 Node* RTreeHelper::chooseLeaf(Node* root, Node::HilbertValue hv_to_insert) {
+    if (root == nullptr) {
+        return nullptr;
+    }
+
     if (root->isLeaf()) {
         return root;
     }
 
     auto it = root->getEntries().begin();
     for (; it != root->getEntries().end(); it++) {
-        const auto hv = (*it)->getLHV(); 
+        const auto hv = (*it)->getLHV();
         if (hv > hv_to_insert) {
             Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();
             return RTreeHelper::chooseLeaf(node, hv_to_insert);
@@ -53,6 +57,9 @@ Node* RTreeHelper::chooseLeaf(Node* root, Node::HilbertValue hv_to_insert) {
 
 std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& query, Node* root) {
     std::vector<std::shared_ptr<LeafEntry>> results;
+    if (root == nullptr) {
+        return results;
+    }
     if (root->isLeaf()) {
         for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
             assert(entry->isLeafEntry());
