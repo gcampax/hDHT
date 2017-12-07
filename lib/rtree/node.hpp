@@ -44,14 +44,14 @@ class Node {
     const std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
     void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
-    Node* getParent();
-    Node* getPrevSibling();
-    Node* getNextSibling();
+    Node* getParent() const;
+    Node* getPrevSibling() const;
+    Node* getNextSibling() const;
+    void setParent(Node* node);
     void setPrevSibling(Node* node);
     void setNextSibling(Node* node);
     std::vector<Node*> getCooperatingSiblings();
     void clearEntries();
-    Node* findNextNode(HilbertValue hv);
     bool hasCapacity() const;
 
   private:

@@ -22,6 +22,7 @@
 
 #include <memory>
 
+#include "internal-entry.hpp"
 #include "rectangle.hpp"
 
 namespace libhdht {
@@ -98,16 +99,20 @@ const std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
     return entries_;
 }
 
-Node* Node::getParent() {
+Node* Node::getParent() const {
     return parent_;
 }
 
-Node* Node::getPrevSibling() {
+Node* Node::getPrevSibling() const {
     return prev_sibling_;
 }
 
-Node* Node::getNextSibling() {
+Node* Node::getNextSibling() const {
     return next_sibling_;
+}
+
+void Node::setParent(Node* node) {
+    this->parent_ = node;
 }
 
 void Node::setPrevSibling(Node* node) {
@@ -147,11 +152,39 @@ void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
 void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is internal
     // TODO(keshav2): Assert node has capacity
-    // TODO(keshav2): Implement insert
-}
+    const HilbertValue entry_lhv = entry->getLHV();
+    auto it = entries_.begin();
+    for (; it != entries_.end(); it++) {
+        if (entry_lhv < (*it)->getLHV()) {
+            it = entries_.insert(it, entry);
+            break;
+        }
+    }
 
-Node* Node::findNextNode(HilbertValue hv) {
-    return nullptr;
+    Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();;
+
+    // Set parent
+    node->setParent(this);
+
+    // Set previous sibling
+    if (it != entries_.begin()) {
+        auto prev_it = it;
+        prev_it--;
+    node->setPrevSibling(std::dynamic_pointer_cast<InternalEntry>(*prev_it)->getNode());
+    } else {
+        node->setPrevSibling(nullptr);
+    }
+
+    // Set next sibling
+    auto end = entries_.end();
+    end--;
+    if (it != end) {
+        auto next_it = it;
+        next_it++;
+        node->setNextSibling(std::dynamic_pointer_cast<InternalEntry>(*next_it)->getNode());
+    } else {
+        node->setNextSibling(nullptr);
+    }
 }
 
 bool Node::hasCapacity() const {

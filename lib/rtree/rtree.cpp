@@ -39,10 +39,10 @@ void RTree::insert(const Point& pt, void *data) {
     std::shared_ptr<LeafEntry> entry = std::make_shared<LeafEntry>(pt, hv, data);
     std::vector<Node*> siblings;
 
-    // I1. Find the appropriate leaf node
-    Node* leaf = chooseLeaf(hv);
+    // Find the appropriate leaf node
+    Node* leaf = RTreeHelper::chooseLeaf(this->root_, hv);
 
-    // I2. Insert r in a leaf node
+    // Insert r in a leaf node
     Node* new_leaf = nullptr;
     if (leaf->hasCapacity()) {
         leaf->insertLeafEntry(entry);
@@ -52,23 +52,11 @@ void RTree::insert(const Point& pt, void *data) {
         new_leaf = RTreeHelper::handleOverflow(leaf, entry, siblings);
     }
     
-    // I3. Propogate changes upward
+    // Propogate changes upward
     this->root_ = RTreeHelper::adjustTree(this->root_, leaf, new_leaf,
                                           siblings);
 
-    // I4. Grow tree taller
-    // TODO(keshav2)
-
-    m_size ++;
-}
-
-Node* RTree::chooseLeaf(HilbertValue hv) {
-    Node* n = root_;
-
-    while (!n->isLeaf()) {
-        n = n->findNextNode(hv);
-    }
-    return n;
+    m_size++;
 }
 
 }

@@ -33,6 +33,24 @@ namespace libhdht {
 
 namespace rtree {
 
+Node* RTreeHelper::chooseLeaf(Node* root, Node::HilbertValue hv_to_insert) {
+    if (root->isLeaf()) {
+        return root;
+    }
+
+    auto it = root->getEntries().begin();
+    for (; it != root->getEntries().end(); it++) {
+        const auto hv = (*it)->getLHV(); 
+        if (hv > hv_to_insert) {
+            Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();
+            return RTreeHelper::chooseLeaf(node, hv_to_insert);
+        }
+    }
+
+    Node* node = std::dynamic_pointer_cast<InternalEntry>(*--it)->getNode();
+    return RTreeHelper::chooseLeaf(node, hv_to_insert);
+}
+
 std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& query, Node* root) {
     std::vector<std::shared_ptr<LeafEntry>> results;
     if (root->isLeaf()) {
@@ -148,7 +166,7 @@ void RTreeHelper::distributeEntries(
                         std::vector<Node*>& siblings) {
     int entries_per_node = (int) (std::ceil(
           static_cast<float> (entries.size()) / siblings.size()));
-    
+
     uint32_t entry_idx = 0;
     for (const auto& sibling : siblings) {
         for (int i = 0; i < entries_per_node && entry_idx < entries.size();

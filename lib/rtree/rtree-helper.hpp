@@ -36,6 +36,8 @@ namespace rtree {
 
 class RTreeHelper {
   public:
+    static Node* chooseLeaf(Node* root, Node::HilbertValue hv_to_insert);
+
     static std::vector<std::shared_ptr<LeafEntry>> search(
                                  const Rectangle& query, Node* root);
 
