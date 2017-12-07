@@ -174,6 +174,11 @@ public:
         // TODO
     }
 
+    std::vector<std::shared_ptr<rtree::LeafEntry>> search(const rtree::Rectangle& rect) const
+    {
+        return m_clients.search(rect);
+    }
+
     template<typename Callback>
     void foreach_client(const Callback& callback) const
     {

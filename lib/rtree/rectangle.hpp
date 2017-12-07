@@ -44,8 +44,32 @@ class Rectangle {
     {
         return upper_;
     }
+    Point& getLower()
+    {
+        return lower_;
+    }
+    Point& getUpper()
+    {
+        return upper_;
+    }
+    Point getCorner(const int corner[2]) const
+    {
+        uint64_t x, y;
+        if (corner[0])
+            x = upper_.first;
+        else
+            x = lower_.first;
+        if (corner[1])
+            y = upper_.second;
+        else
+            y = lower_.second;
+        return std::make_pair(x, y);
+    }
+
+
     bool intersects(const Rectangle& other) const;
     bool contains(const Rectangle& other) const;
+    bool contains(const Point& pt) const;
 
   private:
     Point upper_;

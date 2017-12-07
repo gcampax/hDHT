@@ -37,7 +37,7 @@ namespace rtree {
 class RTreeHelper {
   public:
     static std::vector<std::shared_ptr<LeafEntry>> search(
-                                 std::shared_ptr<Rectangle> query, Node* root);
+                                 const Rectangle& query, Node* root);
 
     static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
                             std::vector<Node*>& siblings);

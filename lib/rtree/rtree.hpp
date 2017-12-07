@@ -71,7 +71,7 @@ class RTree {
     }
 
     void insert(const Point& r, void* data);
-    std::vector<std::shared_ptr<LeafEntry>> search(std::shared_ptr<Rectangle> query)
+    std::vector<std::shared_ptr<LeafEntry>> search(const Rectangle& query) const
     {
         return RTreeHelper::search(query, root_);
     }

@@ -419,6 +419,20 @@ public:
         assert(node->get_peer());
         reply_find_client_address(request_id, node->get_address());
     }
+
+    virtual void handle_search_clients(uint64_t request_id, GeoPoint2D lower, GeoPoint2D upper) override
+    {
+        check_client_or_server();
+
+        auto self = shared_from_this();
+        m_table->search_clients(lower, upper, [self, request_id, this](rpc::Error* error, std::vector<NodeID>* reply) {
+            if (error) {
+                reply_error(request_id, EIO);
+            } else {
+                reply_search_clients(request_id, *reply);
+            }
+        });
+    }
 };
 
 ServerContext::ServerContext(uv::Loop& loop, uint8_t resolution) :

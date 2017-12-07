@@ -33,19 +33,18 @@ namespace libhdht {
 
 namespace rtree {
 
-std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(
-                                std::shared_ptr<Rectangle> query, Node* root) {
+std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& query, Node* root) {
     std::vector<std::shared_ptr<LeafEntry>> results;
     if (root->isLeaf()) {
         for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
             assert(entry->isLeafEntry());
-            if (entry->getMBR()->intersects(*query)) {
+            if (entry->getMBR()->intersects(query)) {
                 results.push_back(std::static_pointer_cast<LeafEntry>(entry));
             }
         }
     } else {
         for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
-            if (entry->getMBR()->intersects(*query)) {
+            if (entry->getMBR()->intersects(query)) {
                 assert(!entry->isLeafEntry());
                 std::vector<std::shared_ptr<LeafEntry>> temp = search(query,
                                std::static_pointer_cast<InternalEntry> (entry)->getNode());

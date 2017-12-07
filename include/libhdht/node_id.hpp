@@ -47,8 +47,11 @@ public:
     NodeID();
     NodeID(const std::string& str);
     NodeID(const GeoPoint2D&, uint8_t resolution);
+    NodeID(uint64_t hilbert_value, uint8_t resolution);
 
     std::pair<uint64_t, uint64_t> to_point(uint8_t resolution) const;
+    uint64_t to_hilbert_value(uint8_t resolution) const;
+
     // check that the low 160-mask bits are all 0
     // (meaning that this is a valid node id in a DHT of resolution mask)
     bool has_mask(uint8_t mask) const;
@@ -119,6 +122,8 @@ public:
     {
         return m_from;
     }
+    NodeID to() const;
+
     // the number of high bits in m_from that should be considered
     uint8_t mask() const
     {

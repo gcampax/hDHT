@@ -79,10 +79,24 @@ NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
     set_valid();
 }
 
+NodeID::NodeID(uint64_t hilbert_value, uint8_t resolution)
+{
+    // resolution is the resolution of the hilbert curve, so
+    // the resolution of the grid is half of that
+    uint64_t shift = (64 - resolution);
+
+    hilbert_value <<= shift;
+    hilbert_value = htobe64(hilbert_value);
+    memcpy(m_parts, &hilbert_value, sizeof(hilbert_value));
+    memset(m_parts + sizeof(hilbert_value), 0, sizeof(m_parts) - sizeof(hilbert_value));
+
+    set_valid();
+}
+
 std::pair<uint64_t, uint64_t>
 NodeID::to_point(uint8_t resolution) const
 {
-    assert(resolution <= 128);
+    assert(resolution <= 64);
 
     // resolution is the resolution of the hilbert curve, so
     // the resolution of the grid is half of that
@@ -90,15 +104,23 @@ NodeID::to_point(uint8_t resolution) const
     uint64_t x, y;
     uint64_t shift = (64 - resolution);
     uint64_t n = (1ULL << (resolution/2));
-    uint64_t d;
-    memcpy(&d, m_parts, sizeof(d));
-    d = be64toh (d);
-    d >>= shift;
+    uint64_t d = to_hilbert_value(resolution);
     hilbert_values::d2xy(n, d, x, y);
     x <<= shift;
     y <<= shift;
 
     return std::make_pair(x, y);
+}
+
+uint64_t
+NodeID::to_hilbert_value(uint8_t resolution) const
+{
+    uint64_t shift = (64 - resolution);
+    uint64_t d;
+    memcpy(&d, m_parts, sizeof(d));
+    d = be64toh(d);
+    d >>= shift;
+    return d;
 }
 
 bool
@@ -156,6 +178,16 @@ NodeIDRange::contains(const NodeIDRange &subrange) const
         return false;
 
     return contains(subrange.m_from);
+}
+
+NodeID
+NodeIDRange::to() const
+{
+    NodeID to = from();
+    for (uint8_t i = m_mask; i < NodeID::size*8; i++)
+        to.set_bit_at(i, 1);
+
+    return to;
 }
 
 // returns a bit mask that has the lowest num_bits set

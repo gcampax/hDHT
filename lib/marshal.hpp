@@ -295,20 +295,43 @@ struct single_marshaller<std::unordered_map<Key, Value>>
 {
     static void to_buffer(BufferWriter& writer, const std::unordered_map<Key, Value>& obj)
     {
-        if (obj.size() > std::numeric_limits<uint8_t>::max())
-            throw std::length_error("Maps with more than 255 elements cannot be marshalled");
-        writer.write(static_cast<uint8_t>(obj.size()));
+        if (obj.size() > std::numeric_limits<uint16_t>::max())
+            throw std::length_error("Maps with more than 65536 elements cannot be marshalled");
+        writer.write(static_cast<uint16_t>(obj.size()));
         for (const auto& iter : obj)
             single_marshaller<std::pair<Key, Value>>::to_buffer(writer, iter);
     }
 
     static std::unordered_map<Key, Value> from_buffer(rpc::Peer& peer, BufferReader& reader)
     {
-        size_t n = reader.read<uint8_t>();
+        size_t n = reader.read<uint16_t>();
         std::unordered_map<Key, Value> map;
         for (size_t i = 0; i < n; i++)
             map.insert(single_marshaller<std::pair<Key, Value>>::from_buffer(peer, reader));
         return map;
+    }
+};
+
+template<typename Type>
+struct single_marshaller<std::vector<Type>>
+{
+    static void to_buffer(BufferWriter& writer, const std::vector<Type>& obj)
+    {
+        if (obj.size() > std::numeric_limits<uint16_t>::max())
+            throw std::length_error("Vectors with more than 65536 elements cannot be marshalled");
+        writer.write(static_cast<uint16_t>(obj.size()));
+        for (const auto& iter : obj)
+            single_marshaller<Type>::to_buffer(writer, iter);
+    }
+
+    static std::vector<Type> from_buffer(rpc::Peer& peer, BufferReader& reader)
+    {
+        size_t n = reader.read<uint16_t>();
+        std::vector<Type> result;
+        result.reserve(n);
+        for (size_t i = 0; i < n; i++)
+            result.push_back(single_marshaller<Type>::from_buffer(peer, reader));
+        return result;
     }
 };
 

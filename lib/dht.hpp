@@ -87,6 +87,8 @@ public:
     // dump the table to the log (with level LOG_DEBUG)
     void debug_dump_table() const;
 
+    void search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper,
+        std::function<void(rpc::Error*, std::vector<NodeID>*)>) const;
 };
 
 }

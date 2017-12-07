@@ -64,6 +64,12 @@ bool Rectangle::contains(const Rectangle& other) const {
     return true;
 }
 
+bool
+Rectangle::contains (const Point &pt) const
+{
+    return contains(Rectangle(pt, pt));
+}
+
 }
 
 } // namespace libhdht

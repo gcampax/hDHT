@@ -101,7 +101,7 @@ begin_class(Server)
 
     // search_clients: find all clients that are registered in the DHT in this
     // rectangle
-    //request(void, search_clients, Rectangle, std::vector<NodeID>)
+    request(std::vector<NodeID>, search_clients, GeoPoint2D, GeoPoint2D)
 end_class
 
 begin_class(Client)

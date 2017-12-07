@@ -19,6 +19,9 @@
 */
 
 #include "libhdht-private.hpp"
+#include "hilbert-values.hpp"
+
+#include "rtree/rtree.hpp"
 
 namespace libhdht {
 
@@ -471,6 +474,135 @@ Table::load_balance_with_peer(std::shared_ptr<protocol::ServerProxy> proxy, std:
             // the other server will perform load balancing if needed
             callback(LoadBalanceAction::InformPeer, server);
         }
+    }
+}
+
+static uint64_t point_to_hilbert(uint8_t resolution, const std::pair<uint64_t, uint64_t>& pt)
+{
+    uint64_t hilbert_size = (1ULL << (resolution/2));
+    return hilbert_values::xy2d(hilbert_size, pt.first, pt.second);
+}
+
+static std::pair<uint64_t, uint64_t> hilbert_to_point(uint8_t resolution, uint64_t hilbert_value)
+{
+    uint64_t hilbert_size = (1ULL << (resolution/2));
+    uint64_t x, y;
+    hilbert_values::d2xy(hilbert_size, hilbert_value, x, y);
+    return std::make_pair(x, y);
+}
+
+class SearchRequest
+{
+private:
+    size_t m_n_waiting = 0;
+    std::function<void(rpc::Error*, std::vector<NodeID>*)> m_callback;
+    std::vector<NodeID> m_accumulated_results;
+    bool m_callback_called = false;
+
+public:
+    SearchRequest(std::function<void(rpc::Error*, std::vector<NodeID>*)>&& callback) : m_callback(callback) {}
+
+    void add_local(std::vector<NodeID>& local)
+    {
+        m_accumulated_results.swap(local);
+    }
+
+    void perform_request(RemoteServerNode *node, const GeoPoint2D& lower, const GeoPoint2D& upper)
+    {
+        auto proxy = node->get_proxy();
+
+        m_n_waiting ++;
+        proxy->invoke_search_clients([this](rpc::Error *error, const std::vector<NodeID>& reply) {
+            m_n_waiting --;
+
+            if (error) {
+                if (!m_callback_called) {
+                    m_callback_called = true;
+                    m_callback(error, nullptr);
+                }
+            } else {
+                m_accumulated_results.insert(m_accumulated_results.end(), reply.begin(), reply.end());
+            }
+
+            if (m_n_waiting == 0) {
+                if (!m_callback_called) {
+                    m_callback_called = true;
+                    m_callback(nullptr, &m_accumulated_results);
+                }
+
+                delete this;
+            }
+        }, lower, upper);
+    }
+};
+
+void
+Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::function<void(rpc::Error*, std::vector<NodeID>*)> callback) const
+{
+    auto rectangle = rtree::Rectangle(upper.to_fixed_point(), lower.to_fixed_point());
+
+    uint64_t mask = ((1ULL << (m_resolution/2)) - 1) << (64 - (m_resolution/2));
+    rectangle.getUpper().first &= mask;
+    rectangle.getUpper().first >>= (64 - (m_resolution/2));
+    rectangle.getUpper().second &= mask;
+    rectangle.getUpper().second >>= (64 - (m_resolution/2));
+    rectangle.getLower().first &= mask;
+    rectangle.getLower().first >>= (64 - (m_resolution/2));
+    rectangle.getLower().second &= mask;
+    rectangle.getLower().second >>= (64 - (m_resolution/2));
+
+    assert(rectangle.getLower() <= rectangle.getUpper());
+
+    static const int rectangle_corners[4][2] = { {0, 0}, {0, 1}, {1, 1}, {1, 0} };
+
+    uint64_t hilbert_corners[4];
+    for (int i = 0; i < 4; i++)
+        hilbert_corners[i] = point_to_hilbert(m_resolution, rectangle.getCorner(rectangle_corners[i]));
+
+    int last_corner = 0;
+
+    std::vector<RemoteServerNode*> to_query;
+    std::vector<NodeID> our_response;
+
+    for (auto i = hilbert_corners[0]; ;) {
+        auto current_point = hilbert_to_point(m_resolution, i);
+        if (rectangle.contains(current_point)) {
+            // search clients at the current point
+
+            NodeID point_id(i, m_resolution);
+            ServerNode *server = find_controlling_server(point_id);
+
+            if (server->is_local()) {
+                auto from_rtree = static_cast<LocalServerNode*>(server)->search(rectangle);
+                for (const auto& rtree_entry : from_rtree)
+                    our_response.push_back(static_cast<ClientNode*>(rtree_entry->get_data())->get_id());
+            } else {
+                to_query.push_back(static_cast<RemoteServerNode*>(server));
+            }
+
+            NodeID next_point = server->get_range().to();
+            i = next_point.to_hilbert_value(m_resolution);
+        } else {
+            bool found = false;
+            for (int j = last_corner + 1; j < 4; j++) {
+                if (hilbert_corners[j] > i) {
+                    i = hilbert_corners[j];
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                break;
+        }
+    }
+
+    if (to_query.empty()) {
+        callback(nullptr, &our_response);
+    } else {
+        SearchRequest *request = new SearchRequest(std::move(callback));
+        request->add_local(our_response);
+        for (auto server : to_query)
+            request->perform_request(server, lower, upper);
     }
 }
 
