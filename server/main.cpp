@@ -25,18 +25,6 @@
 
 using namespace libhdht;
 
-#ifdef HAVE_SYSTEMD
-static int debug_logger(int priority, const char *msg, va_list va)
-{
-    static const char *priority_str[] = {
-        "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"
-    };
-    fprintf(stderr, "%s: ", priority_str[priority]);
-    vfprintf(stderr, msg, va);
-    fprintf(stderr, "\n");
-    return 0;
-}
-#else
 static void debug_logger(int priority, const char *msg, va_list va)
 {
     static const char *priority_str[] = {
@@ -46,7 +34,6 @@ static void debug_logger(int priority, const char *msg, va_list va)
     vfprintf(stderr, msg, va);
     fprintf(stderr, "\n");
 }
-#endif
 
 // 4 billion points in the grid
 static const int DEFAULT_RESOLUTION = 32;

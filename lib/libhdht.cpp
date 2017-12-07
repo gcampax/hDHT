@@ -38,10 +38,15 @@ void fini()
 }
 
 #ifdef HAVE_SYSTEMD
-static int(*logger)(int, const char*, va_list) = sd_journal_printv;
+static void wrap_sd_journal_printv(int priority, const char* format, va_list va)
+{
+    (void)sd_journal_printv(priority, format, va);
+}
+
+static void(*logger)(int, const char*, va_list) = wrap_sd_journal_printv;
 
 void
-set_log_function(int(*function)(int, const char*, va_list))
+set_log_function(void(*function)(int, const char*, va_list))
 {
     logger = function;
 }

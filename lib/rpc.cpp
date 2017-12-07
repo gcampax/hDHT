@@ -550,7 +550,7 @@ Peer::request_received(uint16_t opcode, uint64_t object_id, uint64_t request_id,
     auto it = m_stubs.find(object_id);
 
     if (it == m_stubs.end()) {
-        log(LOG_ERR, "Invalid object id %llu in incoming %s request", object_id, ::libhdht::protocol::get_request_name(opcode));
+        log(LOG_ERR, "Invalid object id %llu in incoming %s request", (unsigned long long)object_id, ::libhdht::protocol::get_request_name(opcode));
         send_fatal_error(object_id, EINVAL);
         return;
     }
@@ -565,7 +565,7 @@ Peer::reply_received(uint64_t request_id, rpc::RemoteError* error, const uv::Buf
     auto it = m_requests.find(request_id);
 
     if (it == m_requests.end()) {
-        log(LOG_WARNING, "Received reply to invalid request %llu", request_id);
+        log(LOG_WARNING, "Received reply to invalid request %llu", (unsigned long long)request_id);
         return;
     }
 
