@@ -51,6 +51,9 @@ class RTreeHelper {
                         std::vector<std::shared_ptr<NodeEntry>>& entries,
                         std::vector<Node*>& siblings);
 
+    static void insert_entry(std::vector<std::shared_ptr<NodeEntry>>& entries,
+                             const std::shared_ptr<NodeEntry>& entry);
+
     template<typename Callback>
     static void foreach_entry(Node* root, const Callback& callback)
     {

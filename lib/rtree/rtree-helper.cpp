@@ -84,34 +84,48 @@ std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& que
 Node* RTreeHelper::handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
                                   std::vector<Node*>& siblings) {
     std::vector<std::shared_ptr<NodeEntry>> entries;
-    for (const auto& e : node->getEntries()) {
-        entries.push_back(e);
-    }
+    std::vector<Node*>::iterator node_it;
+    Node* new_node = nullptr;
+
+    RTreeHelper::insert_entry(entries, entry);
     siblings = node->getCooperatingSiblings();
-    for (Node* sibling : siblings) {
-        for (const auto& e : sibling->getEntries()) {
-            entries.push_back(e);
+    for (auto it = siblings.begin(); it != siblings.end(); it++) {
+        Node* sibling = *it;
+        if (sibling == nullptr) continue;
+        const std::vector<std::shared_ptr<NodeEntry>>& sibling_entries = sibling->getEntries();
+        for (auto e : sibling_entries) {
+            RTreeHelper::insert_entry(entries, e);
         }
         sibling->clearEntries();
-    }
-    entries.push_back(entry);
-
-    for (Node* sibling : siblings) {
-        if (sibling->hasCapacity()) {
-            RTreeHelper::distributeEntries(entries, siblings);
-            return nullptr;
+        if (sibling == node) {
+            node_it = it;
         }
     }
-    Node* new_node = new Node();
-    Node* prevSibling = node->getPrevSibling();
-    new_node->setPrevSibling(prevSibling);
-    if (prevSibling != nullptr) {
-        prevSibling->setNextSibling(new_node);
+
+    int total_capacity = siblings.size() * kMaxCapacity;
+    if (entries.size() >= total_capacity) {
+        // We need a new node because there is no capacity in the existing nodes
+        new_node = new Node();
+        new_node->setLeaf(entry->isLeafEntry());
+
+        // Adjust the sibling pointers as follows:
+        // node_prev_sibling -> node
+        // |-> node_prev_sibling -> new_node -> node
+        Node* node_prev_sibling = node->getPrevSibling();
+        if (node_prev_sibling != nullptr) {
+            node_prev_sibling->setNextSibling(new_node);
+        }
+        new_node->setPrevSibling(node->getPrevSibling());
+        node->setPrevSibling(new_node);
+        new_node->setNextSibling(node);
+
+        // Insert the new node where the original node was
+        siblings.insert(node_it, new_node);
     }
-    new_node->setNextSibling(node);
-    node->setPrevSibling(new_node);
-    siblings.push_back(new_node); // TODO(insert this in the correct position)
+
+    // Redistribute the entries
     RTreeHelper::distributeEntries(entries, siblings);
+
     return new_node;
 }
 
@@ -127,11 +141,12 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
             done = true;
 
             if (new_node != nullptr) {
-              std::shared_ptr<InternalEntry> node_entry = std::make_shared<InternalEntry>(node);
-              std::shared_ptr<InternalEntry> new_node_entry = std::make_shared<InternalEntry>(new_node);
-              root = new Node();
-              root->insertInternalEntry(node_entry);
-              root->insertInternalEntry(new_node_entry);
+                std::shared_ptr<InternalEntry> node_entry = std::make_shared<InternalEntry>(node);
+                std::shared_ptr<InternalEntry> new_node_entry = std::make_shared<InternalEntry>(new_node);
+                root = new Node();
+                root->setLeaf(false);
+                root->insertInternalEntry(node_entry);
+                root->insertInternalEntry(new_node_entry);
             }
         } else {
             if (new_node != nullptr) {
@@ -171,13 +186,11 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
 void RTreeHelper::distributeEntries(
                         std::vector<std::shared_ptr<NodeEntry>>& entries,
                         std::vector<Node*>& siblings) {
-    int entries_per_node = (int) (std::ceil(
-          static_cast<float> (entries.size()) / siblings.size()));
+    int entries_per_node = (int) (std::ceil(static_cast<float> (entries.size()) / siblings.size()));
 
     uint32_t entry_idx = 0;
     for (const auto& sibling : siblings) {
-        for (int i = 0; i < entries_per_node && entry_idx < entries.size();
-             i++) {
+        for (int i = 0; i < entries_per_node && entry_idx < entries.size(); i++) {
             if (entries[entry_idx]->isLeafEntry()) {
                 sibling->insertLeafEntry(entries[entry_idx++]);
             } else {
@@ -187,6 +200,18 @@ void RTreeHelper::distributeEntries(
         sibling->adjustLHV();
         sibling->adjustMBR();
     }
+}
+
+void RTreeHelper::insert_entry(std::vector<std::shared_ptr<NodeEntry>>& entries,
+                               const std::shared_ptr<NodeEntry>& entry) {
+    auto it = entries.begin();
+    for (; it != entries.end(); it++) {
+        if ((*it)->getLHV() > entry->getLHV()) {
+            entries.insert(it, entry);
+            return;
+        }
+    }
+    entries.insert(it, entry);
 }
 
 }

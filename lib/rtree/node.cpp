@@ -29,12 +29,9 @@ namespace libhdht {
 
 namespace rtree {
 
-const uint64_t kDefaultHilbertValue = 0;
-const uint64_t kLeafCapacity = 5;
-const uint64_t kInternalCapacity = 5;
-
 Node::Node() {
-
+    prev_sibling_ = nullptr;
+    next_sibling_ = nullptr;
 }
 
 Node::~Node() {
@@ -100,7 +97,7 @@ void Node::adjustLHV() {
     lhv_ = new_lhv;
 }
 
-const std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
+std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
     return entries_;
 }
 
@@ -131,9 +128,13 @@ void Node::setNextSibling(Node* node) {
 std::vector<Node*> Node::getCooperatingSiblings() {
     std::vector<Node*> cooperating_siblings;
 
-    cooperating_siblings.push_back(this->prev_sibling_);
+    if (this->prev_sibling_ != nullptr) {
+        cooperating_siblings.push_back(this->prev_sibling_);
+    }
     cooperating_siblings.push_back(this);
-    cooperating_siblings.push_back(this->next_sibling_);
+    if (this->next_sibling_ != nullptr) {
+        cooperating_siblings.push_back(this->next_sibling_);
+    }
 
     return cooperating_siblings;
 }
@@ -161,13 +162,17 @@ void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node has capacity
     const HilbertValue entry_lhv = entry->getLHV();
     auto it = entries_.begin();
+    bool inserted = false;
     for (; it != entries_.end(); it++) {
         if (entry_lhv < (*it)->getLHV()) {
             it = entries_.insert(it, entry);
+            inserted = true;
             break;
         }
     }
-
+    if (!inserted) {
+        it = entries_.insert(it, entry);
+    }
     Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();;
 
     // Set parent
@@ -195,13 +200,7 @@ void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
 }
 
 bool Node::hasCapacity() const {
-    if (leaf_ && entries_.size() < kLeafCapacity) {
-        return true;
-    } else if (!leaf_ && entries_.size() < kInternalCapacity) {
-        return true;
-    } else {
-        return false;
-    }
+    return entries_.size() < kMaxCapacity;
 }
 
 }

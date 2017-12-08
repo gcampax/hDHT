@@ -47,7 +47,6 @@ void RTree::insert(const Point& pt, void *data) {
         root_ = leaf;
     }
 
-
     // Insert r in a leaf node
     Node* new_leaf = nullptr;
     if (leaf->hasCapacity()) {

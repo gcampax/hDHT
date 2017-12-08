@@ -29,6 +29,9 @@ namespace libhdht {
 
 namespace rtree {
 
+const uint64_t kDefaultHilbertValue = 0;
+const uint64_t kMaxCapacity = 5;
+
 // An RTree node
 class Node {
   public:
@@ -42,7 +45,7 @@ class Node {
     HilbertValue getLHV();
     void adjustMBR();
     void adjustLHV();
-    const std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
+    std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
     void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
     void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
     Node* getParent() const;

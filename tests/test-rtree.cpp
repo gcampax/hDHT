@@ -21,7 +21,6 @@
 #include "../lib/rtree/rtree.hpp"
 
 #include <cassert>
-
 using namespace libhdht::rtree;
 
 static void test_search() {
@@ -40,6 +39,21 @@ static void test_search() {
     }
 }
 
+static void test_overflow() {
+    RTree rtree(32 /* max_dimension */);
+    float data = 1000;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            rtree.insert(std::make_pair<uint64_t, uint64_t>(i, j), &data);
+        }
+    }
+    Rectangle rectangle(std::make_pair<uint64_t, uint64_t>(0, 0),
+                        std::make_pair<uint64_t, uint64_t>(3, 3));
+    std::vector<std::shared_ptr<LeafEntry>> results = rtree.search(rectangle);
+    assert(results.size() == 9);
+}
+
 int main() {
     test_search();
+    test_overflow();
 }
