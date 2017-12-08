@@ -102,7 +102,7 @@ Node* RTreeHelper::handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
         }
     }
 
-    int total_capacity = siblings.size() * kMaxCapacity;
+    size_t total_capacity = siblings.size() * kMaxCapacity;
     if (entries.size() >= total_capacity) {
         // We need a new node because there is no capacity in the existing nodes
         new_node = new Node();
