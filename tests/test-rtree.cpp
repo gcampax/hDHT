@@ -30,8 +30,8 @@ static void test_search() {
     rtree.insert(std::make_pair<uint64_t, uint64_t>(0, 1), &data);
     rtree.insert(std::make_pair<uint64_t, uint64_t>(2, 0), &data);
     rtree.insert(std::make_pair<uint64_t, uint64_t>(3, 3), &data);
-    Rectangle rectangle(std::make_pair<uint64_t, uint64_t>(0, 0),
-                        std::make_pair<uint64_t, uint64_t>(2, 2));
+    Rectangle rectangle(std::make_pair<uint64_t, uint64_t>(2, 2),
+                        std::make_pair<uint64_t, uint64_t>(0, 0));
     std::vector<std::shared_ptr<LeafEntry>> results = rtree.search(rectangle);
     assert(results.size() == 3);
     for (const auto& result : results) {
@@ -47,8 +47,8 @@ static void test_overflow() {
             rtree.insert(std::make_pair<uint64_t, uint64_t>(i, j), &data);
         }
     }
-    Rectangle rectangle(std::make_pair<uint64_t, uint64_t>(0, 0),
-                        std::make_pair<uint64_t, uint64_t>(3, 3));
+    Rectangle rectangle(std::make_pair<uint64_t, uint64_t>(3, 3),
+                        std::make_pair<uint64_t, uint64_t>(0, 0));
     std::vector<std::shared_ptr<LeafEntry>> results = rtree.search(rectangle);
     assert(results.size() == 9);
 }

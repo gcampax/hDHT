@@ -114,6 +114,9 @@ public:
     void get_remote_metadata(const NodeID&, const std::string& key,
         std::function<void(rpc::Error*, const std::string*)> callback) const;
 
+    void search_clients(const GeoPoint2D& upper, const GeoPoint2D& lower,
+        std::function<void(rpc::Error*, const std::vector<NodeID>)> callback) const;
+
     net::Address get_current_server() const;
     const NodeID& get_current_node_id() const
     {

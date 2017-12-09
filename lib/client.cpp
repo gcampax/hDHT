@@ -341,4 +341,15 @@ ClientContext::get_remote_metadata(const NodeID &node_id, const std::string &key
     do_get_remote_metadata(node_id, key, std::move(callback), true);
 }
 
+void
+ClientContext::search_clients(const GeoPoint2D &upper, const GeoPoint2D &lower, std::function<void(rpc::Error*, const std::vector<NodeID>)> callback) const
+{
+    // if you call set_metadata and are not registered you get EPERM, which is bad
+    assert(m_is_registered);
+
+    auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
+
+    proxy->invoke_search_clients(callback, upper, lower);
+}
+
 }

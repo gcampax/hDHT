@@ -518,12 +518,12 @@ public:
         m_accumulated_results.swap(local);
     }
 
-    void perform_request(RemoteServerNode *node, const GeoPoint2D& lower, const GeoPoint2D& upper)
+    void perform_request(RemoteServerNode *node, const rtree::Rectangle& rect, const std::pair<uint64_t, uint64_t>& hilbert_bounds)
     {
         auto proxy = node->get_proxy();
 
         m_n_waiting ++;
-        proxy->invoke_search_clients([this](rpc::Error *error, const std::vector<NodeID>& reply) {
+        proxy->invoke_forward_search_clients([this](rpc::Error *error, const std::vector<NodeID>& reply) {
             m_n_waiting --;
 
             if (error) {
@@ -543,12 +543,12 @@ public:
 
                 delete this;
             }
-        }, lower, upper);
+        }, rect.getLower(), rect.getUpper(), hilbert_bounds);
     }
 };
 
-void
-Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::function<void(rpc::Error*, std::vector<NodeID>*)> callback) const
+rtree::Rectangle
+Table::get_rectangle_for_points(const GeoPoint2D &upper, const GeoPoint2D &lower) const
 {
     auto rectangle = rtree::Rectangle(upper.to_fixed_point(), lower.to_fixed_point());
 
@@ -564,6 +564,12 @@ Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::fun
 
     assert(rectangle.getLower() <= rectangle.getUpper());
 
+    return rectangle;
+}
+
+void
+Table::search_clients(const rtree::Rectangle& rectangle, uint64_t min_hilbert_value, uint64_t max_hilbert_value, std::function<void(rpc::Error*, std::vector<NodeID>*)> callback) const
+{
     static const int rectangle_corners[4][2] = { {0, 0}, {0, 1}, {1, 1}, {1, 0} };
 
     uint64_t hilbert_corners[4];
@@ -572,10 +578,10 @@ Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::fun
 
     int last_corner = 0;
 
-    std::vector<RemoteServerNode*> to_query;
+    std::vector<std::pair<RemoteServerNode*, std::pair<uint64_t, uint64_t>>> to_query;
     std::vector<NodeID> our_response;
 
-    for (auto i = hilbert_corners[0]; ;) {
+    for (auto i = std::max(hilbert_corners[0], min_hilbert_value); i <= max_hilbert_value;) {
         auto current_point = hilbert_to_point(m_resolution, i);
         if (rectangle.contains(current_point)) {
             // search clients at the current point
@@ -588,11 +594,15 @@ Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::fun
                 for (const auto& rtree_entry : from_rtree)
                     our_response.push_back(static_cast<ClientNode*>(rtree_entry->get_data())->get_id());
             } else {
-                to_query.push_back(static_cast<RemoteServerNode*>(server));
+                auto pt_begin = server->get_range().from().to_hilbert_value(m_resolution);
+                auto pt_end = server->get_range().to().to_hilbert_value(m_resolution);
+
+                to_query.push_back(std::make_pair(static_cast<RemoteServerNode*>(server),
+                    std::make_pair(pt_begin, pt_end)));
             }
 
             NodeID next_point = server->get_range().to();
-            i = next_point.to_hilbert_value(m_resolution);
+            i = next_point.to_hilbert_value(m_resolution) + 1;
         } else {
             bool found = false;
             for (int j = last_corner + 1; j < 4; j++) {
@@ -612,8 +622,8 @@ Table::search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper, std::fun
     } else {
         SearchRequest *request = new SearchRequest(std::move(callback));
         request->add_local(our_response);
-        for (auto server : to_query)
-            request->perform_request(server, lower, upper);
+        for (auto& server : to_query)
+            request->perform_request(server.first, rectangle, server.second);
     }
 }
 

@@ -45,11 +45,11 @@ std::pair<uint64_t, uint64_t> Rectangle::getCenter() const {
 }
 
 bool Rectangle::intersects(const Rectangle& other) const {
-    if (upper_.first > other.lower_.first ||
-        other.upper_.first > lower_.first)
+    if (lower_.first > other.upper_.first ||
+        other.lower_.first > upper_.first)
         return false;
-    if (upper_.second > other.lower_.second ||
-        other.upper_.second > lower_.second)
+    if (lower_.second > other.upper_.second ||
+        other.lower_.second > upper_.second)
         return false;
     return true;
 }
@@ -65,9 +65,26 @@ bool Rectangle::contains(const Rectangle& other) const {
 }
 
 bool
-Rectangle::contains (const Point &pt) const
+Rectangle::contains(const Point &pt) const
 {
     return contains(Rectangle(pt, pt));
+}
+
+Rectangle
+Rectangle::intersection(const Rectangle &one, const Rectangle &two)
+{
+    if (!one.intersects(two))
+        return Rectangle();
+
+    auto upper = std::make_pair(
+        std::min(one.upper_.first, two.upper_.first),
+        std::min(one.upper_.second, two.upper_.second)
+    );
+    auto lower = std::make_pair(
+        std::max(one.lower_.first, two.lower_.first),
+        std::max(one.lower_.second, two.lower_.second)
+    );
+    return Rectangle(upper, lower);
 }
 
 }

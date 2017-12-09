@@ -102,13 +102,9 @@ NodeID::to_point(uint8_t resolution) const
     // the resolution of the grid is half of that
 
     uint64_t x, y;
-    uint64_t shift = (64 - resolution);
     uint64_t n = (1ULL << (resolution/2));
     uint64_t d = to_hilbert_value(resolution);
     hilbert_values::d2xy(n, d, x, y);
-    x <<= shift;
-    y <<= shift;
-
     return std::make_pair(x, y);
 }
 

@@ -425,14 +425,29 @@ public:
 
     virtual void handle_search_clients(uint64_t request_id, GeoPoint2D lower, GeoPoint2D upper) override
     {
-        check_client_or_server();
+        check_client();
 
         auto self = shared_from_this();
-        m_table->search_clients(lower, upper, [self, request_id, this](rpc::Error* error, std::vector<NodeID>* reply) {
+        m_table->search_clients(m_table->get_rectangle_for_points(upper, lower), 0, (uint64_t)-1, [self, request_id, this](rpc::Error* error, std::vector<NodeID>* reply) {
             if (error) {
                 reply_error(request_id, EIO);
             } else {
                 reply_search_clients(request_id, *reply);
+            }
+        });
+    }
+
+    virtual void handle_forward_search_clients(uint64_t request_id, std::pair<uint64_t, uint64_t> lower, std::pair<uint64_t, uint64_t> upper, std::pair<uint64_t, uint64_t> hilbert_bounds) override
+    {
+        check_server();
+
+        auto self = shared_from_this();
+        m_table->search_clients(rtree::Rectangle(upper, lower), hilbert_bounds.first, hilbert_bounds.second,
+            [self, request_id, this](rpc::Error* error, std::vector<NodeID>* reply) {
+            if (error) {
+                reply_error(request_id, EIO);
+            } else {
+                reply_forward_search_clients(request_id, *reply);
             }
         });
     }

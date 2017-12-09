@@ -150,6 +150,7 @@ public:
         cout << "  show-metadata <key>" << endl;
         cout << "  show-server" << endl;
         cout << "  get-metadata <node_id> <key>" << endl;
+        cout << "  search <lat-low> <lon-low> <lat-high> <lon-high>" << endl;
         cout << "  quit" << endl;
         prompt();
     }
@@ -207,6 +208,26 @@ public:
                     prompt();
                 });
                 return;
+            } catch(const std::invalid_argument& e) {
+                cout << "Invalid argument" << endl;
+            }
+        } else if (command == "search") {
+            try {
+                double lat_low, lon_low, lat_high, lon_high;
+                parser >> lat_low >> lon_low >> lat_high >> lon_high;
+                m_reading = false;
+                stop_reading();
+                search_clients(GeoPoint2D {lat_low, lon_low}, GeoPoint2D {lat_high, lon_high}, [this](rpc::Error* err, const std::vector<NodeID>& nodes) {
+                    if (err) {
+                        cout << "Failed: " << err->what() << endl;
+                        prompt();
+                        return;
+                    }
+                    for (const auto& node : nodes)
+                        cout << "Found node " << node.to_hex() << endl;
+                    cout << "Search complete" << endl;
+                    prompt();
+                });
             } catch(const std::invalid_argument& e) {
                 cout << "Invalid argument" << endl;
             }

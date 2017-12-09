@@ -63,6 +63,7 @@ public:
     {
         return NodeID(pt, m_resolution);
     }
+    rtree::Rectangle get_rectangle_for_points(const GeoPoint2D& upper, const GeoPoint2D& lower) const;
 
     // Client management
     ClientNode *get_or_create_client_node(const NodeID& id, const GeoPoint2D& pt);
@@ -87,7 +88,8 @@ public:
     // dump the table to the log (with level LOG_DEBUG)
     void debug_dump_table() const;
 
-    void search_clients(const GeoPoint2D& lower, const GeoPoint2D& upper,
+    void search_clients(const rtree::Rectangle& upper,
+        uint64_t min_hilbert_value, uint64_t max_hilbert_value,
         std::function<void(rpc::Error*, std::vector<NodeID>*)>) const;
 };
 

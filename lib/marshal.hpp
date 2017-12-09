@@ -286,7 +286,7 @@ struct single_marshaller<std::pair<First, Second>>
     {
         First first = single_marshaller<First>::from_buffer(peer, reader);
         Second second = single_marshaller<Second>::from_buffer(peer, reader);
-        return make_pair(std::move(first), std::move(second));
+        return std::make_pair(std::move(first), std::move(second));
     }
 };
 

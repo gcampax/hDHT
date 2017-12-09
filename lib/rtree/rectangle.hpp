@@ -66,8 +66,8 @@ class Rectangle {
         return std::make_pair(x, y);
     }
 
-
     bool intersects(const Rectangle& other) const;
+    static Rectangle intersection(const Rectangle& one, const Rectangle& two);
     bool contains(const Rectangle& other) const;
     bool contains(const Point& pt) const;
 
