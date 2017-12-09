@@ -86,7 +86,7 @@ private:
 
 public:
     ClientContext(uv::Loop& loop);
-    ~ClientContext();
+    virtual ~ClientContext();
 
     ClientContext(const ClientContext&) = delete;
     ClientContext(ClientContext&&) = delete;
@@ -115,6 +115,12 @@ public:
         std::function<void(rpc::Error*, const std::string*)> callback) const;
 
     net::Address get_current_server() const;
+    const NodeID& get_current_node_id() const
+    {
+        return m_node_id;
+    }
+
+    virtual void on_register() {};
 };
 
 }

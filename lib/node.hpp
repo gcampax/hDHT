@@ -200,6 +200,10 @@ public:
     {
         return m_proxy;
     }
+    void set_proxy(std::shared_ptr<protocol::ServerProxy> proxy)
+    {
+        m_proxy = proxy;
+    }
 
     virtual RemoteServerNode* split() override;
 

@@ -79,6 +79,8 @@ class RTree {
     template<typename Callback>
     void foreach_entry(const Callback& callback) const
     {
+        if (root_ == nullptr)
+            return;
         RTreeHelper::foreach_entry(root_, callback);
     }
 

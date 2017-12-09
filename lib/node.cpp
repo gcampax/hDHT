@@ -39,7 +39,7 @@ hex_to_int(char c)
     if (c >= '0' && c <= '9')
         return c - '0';
     else
-        return c - 'a';
+        return 10 + c - 'a';
 }
 
 NodeID::NodeID(const std::string& str)
@@ -69,7 +69,7 @@ NodeID::NodeID(const GeoPoint2D& point, uint8_t resolution)
     // the resolution of the grid is half of that
     uint64_t shift = (64 - resolution);
     uint64_t n = (1ULL << (resolution/2));
-    uint64_t d = hilbert_values::xy2d(n, fixed_point.first >> shift, fixed_point.second >> shift);
+    uint64_t d = hilbert_values::xy2d(n, fixed_point.first >> (64 - resolution / 2), fixed_point.second >> (64 - resolution / 2));
 
     d <<= shift;
     d = htobe64(d);
@@ -131,9 +131,9 @@ NodeID::has_mask(uint8_t mask) const
         return true;
 
     size_t i0 = mask / 8;
-    size_t first_bit = mask % 8;
-    uint8_t low_bits = ((1 << (first_bit))-1) & 0xFF;
-    if ((m_parts[i0] & ~low_bits) != 0)
+    size_t first_bit = 7 - mask % 8;
+    uint8_t low_bits = ((1 << first_bit)-1) & 0xFF;
+    if ((m_parts[i0] & low_bits) != 0)
         return false;
 
     for (size_t i = i0 + 1; i < NodeID::size; i++) {
@@ -171,6 +171,21 @@ NodeID::to_string() const
     return buffer;
 }
 
+std::string
+NodeID::to_hex() const
+{
+    std::string str;
+    str.resize(NodeID::size * 2);
+
+    for (size_t i = 0; i < NodeID::size; i++) {
+        uint8_t c = m_parts[i];
+        str[2*i] = (c >> 4) <= 9 ? ('0' + (c >> 4)) : ('a' + ((c >> 4) - 10));
+        str[2*i+1] = (c & 0xf) <= 9 ? ('0' + (c & 0xf)) : ('a' + ((c & 0xf) - 10));
+    }
+
+    return str;
+}
+
 bool
 NodeIDRange::contains(const NodeIDRange &subrange) const
 {
@@ -190,11 +205,11 @@ NodeIDRange::to() const
     return to;
 }
 
-// returns a bit mask that has the lowest num_bits set
-static uint8_t low_bit_mask(size_t num_bits)
+// returns a 8-bit mask that has the highest num_bits set
+static uint8_t high_bit_mask(size_t num_bits)
 {
-    uint8_t low_bits = ((1 << num_bits)-1) & 0xFF;
-    return low_bits;
+    uint8_t low_bits = ((1 << (8 - num_bits))-1) & 0xFF;
+    return ~low_bits;
 }
 
 bool
@@ -206,8 +221,8 @@ NodeIDRange::contains(const NodeID & node) const
             return false;
     }
 
-    if (i * 8 < m_mask) {
-        uint8_t mask = low_bit_mask(m_mask - i * 8);
+    if (m_mask % 8) {
+        uint8_t mask = high_bit_mask(m_mask % 8);
         if ((m_from.m_parts[i] & mask) != (node.m_parts[i] & mask))
             return false;
     }
@@ -229,7 +244,6 @@ NodeIDRange::to_string() const
 
     return "from " + m_from.to_string() + " to " + to.to_string() + " (mask " + std::to_string(m_mask) + ")";
 }
-
 
 ServerNode::ServerNode(const NodeIDRange& id_range) : m_range(id_range)
 {}

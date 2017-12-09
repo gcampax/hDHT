@@ -111,10 +111,9 @@ struct Options
 using std::cout;
 using std::endl;
 
-class Client : private uv::TTY
+class Client : private uv::TTY, private ClientContext
 {
     Options m_opts;
-    ClientContext m_ctx;
     uv::Loop& m_event_loop;
     bool m_reading = false;
 
@@ -129,15 +128,15 @@ class Client : private uv::TTY
 public:
     Client(int argc, char* const* argv, uv::Loop& event_loop) :
         uv::TTY(event_loop, STDIN_FILENO),
+        ClientContext(event_loop),
         m_opts(argc, argv),
-        m_ctx(event_loop),
         m_event_loop(event_loop)
     {
         try {
-            m_ctx.add_address(m_opts.own_address);
+            add_address(m_opts.own_address);
             auto addresses = m_opts.peer.resolve_sync();
             if (!addresses.empty())
-                m_ctx.set_initial_server(addresses.front());
+                set_initial_server(addresses.front());
         } catch(std::runtime_error& e) {
             cout << "Failed to initialize: " << e.what() << endl;
             exit(1);
@@ -153,6 +152,11 @@ public:
         cout << "  get-metadata <node_id> <key>" << endl;
         cout << "  quit" << endl;
         prompt();
+    }
+
+    virtual void on_register() override
+    {
+        cout << "Registered! Current Node ID: " << get_current_node_id().to_hex() << endl;
     }
 
     virtual void read_line(uv::Error err, uv::Buffer&& line)
@@ -175,27 +179,27 @@ public:
         if (command == "set-location") {
             double lat, lon;
             parser >> lat >> lon;
-            m_ctx.set_location(GeoPoint2D { lat, lon });
+            set_location(GeoPoint2D { lat, lon });
         } else if (command == "show-location") {
-            auto pt = m_ctx.get_location();
+            auto pt = get_location();
             cout << "Current Location: " << pt.to_string() << endl;
         } else if (command == "set-metadata") {
             std::string key, value;
             parser >> key >> value;
-            m_ctx.set_local_metadata(key, value);
+            set_local_metadata(key, value);
         } else if (command == "show-metadata") {
             std::string key;
             parser >> key;
-            cout << key << " = " << m_ctx.get_local_metadata(key) << endl;
+            cout << key << " = " << get_local_metadata(key) << endl;
         } else if (command == "show-server") {
-            cout << "Current Server: " << m_ctx.get_current_server().to_string() << endl;
+            cout << "Current Server: " << get_current_server().to_string() << endl;
         } else if (command == "get-metadata") {
             try {
                 std::string node_id, key;
                 parser >> node_id >> key;
                 m_reading = false;
                 stop_reading();
-                m_ctx.get_remote_metadata(node_id, key, [this, key](rpc::Error *err, const std::string* value) {
+                get_remote_metadata(node_id, key, [this, key](rpc::Error *err, const std::string* value) {
                     if (err)
                         cout << "Failed: " << err->what() << endl;
                     else

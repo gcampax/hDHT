@@ -73,11 +73,16 @@ public:
 
     int bit_at(uint8_t pos) const
     {
-        return (m_parts[pos / 8] >> (pos % 8)) & 0x1;
+        return (m_parts[pos / 8]) & (1 << (7 - pos % 8));
     }
     void set_bit_at(uint8_t pos, int bit)
     {
-        m_parts[pos / 8] = (m_parts[pos / 8] & ~(1 << (pos % 8))) | (bit << (pos % 8));
+        uint8_t bit_mask = (1 << (7 - pos % 8));
+
+        if (bit)
+            m_parts[pos / 8] |= bit_mask;
+        else
+            m_parts[pos / 8] &= ~bit_mask;
     }
 
     bool operator==(const NodeID& o) const
@@ -99,6 +104,7 @@ public:
     }
 
     std::string to_string() const;
+    std::string to_hex() const;
 };
 
 class NodeIDRange
@@ -136,6 +142,10 @@ public:
 
     bool contains(const NodeID&) const;
     bool contains(const NodeIDRange&) const;
+    bool operator==(const NodeIDRange& other) const
+    {
+        return m_mask == other.m_mask && m_from == other.m_from;
+    }
 
     bool has_mask(uint8_t mask) const;
 

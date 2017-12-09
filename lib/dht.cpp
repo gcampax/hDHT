@@ -79,6 +79,15 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
     const NodeIDRange* current_range = &it->second->get_range();
     assert(current_range->from() == it->first);
 
+    if (range == *current_range) {
+        if (it->second->is_local())
+            return false;
+
+        RemoteServerNode *server = static_cast<RemoteServerNode*>(it->second);
+        server->set_proxy(proxy);
+        return true;
+    }
+
     if (range.contains(*current_range)) {
         // first check if anything that overlaps range is local
         // if so, we reject this change - we're the only ones deciding when to give up our
@@ -90,6 +99,8 @@ Table::add_remote_server_node(const NodeIDRange& range, std::shared_ptr<protocol
                 return false;
 
             copy++;
+            if (copy == m_ranges.end())
+                break;
             check_range = &copy->second->get_range();
             assert(check_range->from() == copy->first);
         } while (range.contains(*check_range));

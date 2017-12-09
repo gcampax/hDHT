@@ -270,6 +270,9 @@ public:
     virtual void handle_find_server_for_point(uint64_t request_id, GeoPoint2D point) override
     {
         check_client();
+
+        log(LOG_INFO, "Received FindServerForPoint for %s", point.to_string().c_str());
+
         handle_find_controlling_server(request_id, m_table->get_node_id_for_point(point));
     }
 
@@ -393,7 +396,7 @@ public:
 
     virtual void handle_get_metadata(uint64_t request_id, NodeID node_id, std::string key) override
     {
-        check_client();
+        //check_client();
         if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 
@@ -403,12 +406,12 @@ public:
 
         log(LOG_INFO, "Get metadata request for key %s in client %s from %s", key.c_str(),
             node->get_id().to_string().c_str(), get_peer()->get_listening_address().to_string().c_str());
-        reply_get_metadata(request_id, m_client_node->get_metadata(key));
+        reply_get_metadata(request_id, node->get_metadata(key));
     }
 
     virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override
     {
-        check_client();
+        //check_client();
         if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 

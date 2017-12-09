@@ -196,6 +196,7 @@ ClientContext::do_register()
         m_node_id = node_id;
         m_is_registered = true;
 
+        on_register();
         if (!m_was_registered || result == protocol::ClientRegistrationResult::ClientCreated) {
             m_was_registered = true;
             m_must_set_location = false;
