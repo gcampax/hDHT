@@ -1,7 +1,7 @@
 # hDHT
 Using Hilbert curves and DHTs to implement location queries
 
-# Installation
+## Installation
 To build hDHT you will need a compiler that supports C++ 14.
 A recent version of gcc or clang is preferred. In particular, gcc 5.3 (as shipped in Ubuntu 16.04 LTS) is known **not** to work.
 
@@ -18,7 +18,7 @@ sudo make install
 
 This will install `/usr/bin/hdhtd`, the server, and `/usr/bin/hdhtd-cli`, the command line client.
 
-# Running the server
+## Running the server
 
 ```
 hdhtd -l 0.0.0.0:<PORT> [-p <PEER>]*
@@ -30,7 +30,7 @@ The `-p` option provides the initial set of peers to the server. If you don't gi
 
 Use the `-d` option to enable debugging.
 
-# Running the client
+## Running the client
 
 ```
 hdht-cli -s <SERVER> -l 0.0.0.0:<PORT>
