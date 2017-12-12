@@ -1,2 +1,8 @@
 \section{Future Work} \label{section:future-work}
-Now that we have implemented the underlying infrastructure of hDHT, the next step would be to develop an algorithm that could take as input the information about runners' locations and output similar routes. [TODO explain how this would work] Then the logical next step would be to build a more interactive interface so that we could visualize the results of our route similarity algorithm.
+Now that we have implemented the underlying infrastructure of hDHT, the next step would be to write a client that actually sits on a mobile device and has access to real location data.
+
+Additionally, we would like to develop an algorithm that could take as input the information about runners' locations and output similar routes.
+One example of such an algorithm could look at clients that sit in the same RTree node for a long period time; if the clients are in the same RTree node after they move, it means they move relatively close to each other.
+Another possibility for the algorithm would be to consider each segment or portion of the Hilbert curve as a feature in a large collaborative filtering model~\cite{Sarwar:2001:ICF:371920.372071}. This would have the advantage to be the most general recommendation system algorithm, but it would require a training phase with a large dataset.
+
+Finally, we would want to build a more interactive interface so that we could visualize the results of our route similarity algorithm.
