@@ -5,13 +5,14 @@ Using Hilbert curves and DHTs to implement location queries
 To build hDHT you will need a compiler that supports C++ 14.
 A recent version of gcc or clang is preferred. In particular, gcc 5.3 (as shipped in Ubuntu 16.04 LTS) is known **not** to work.
 
+hDHT depends on libuv (libuv.pc) for asynchronous IO.
 Optionally, if the systemd libraries (libsystemd.pc) are present, hDHT will be compiled with support for systemd journal logging.
 
 To build, do:
 ```
 mkdir build/
 cd build/
-cmake .. -DCMAKE_BUILDTYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
 sudo make install
 ```
