@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Paper
+*.aux
+*.bbl
+*.log
+*.pdf
