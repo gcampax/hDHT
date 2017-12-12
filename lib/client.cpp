@@ -94,7 +94,7 @@ ClientContext::do_set_location()
 
     auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
 
-    proxy->invoke_set_location([this](rpc::Error *err, protocol::SetLocationResult result, NodeID new_node_id) {
+    proxy->invoke_set_location([this](rpc::Error *err, protocol::SetLocationResult result, NodeID new_node_id, net::Address new_address) {
         if (err) {
             rpc::RemoteError *remote_err = dynamic_cast<rpc::RemoteError*>(err);
             if (remote_err) {
@@ -125,8 +125,11 @@ ClientContext::do_set_location()
         m_must_set_location = false;
         m_node_id = new_node_id;
         if (result == protocol::SetLocationResult::DifferentServer) {
+            // we must register with this server regardless of what the server knows about us
+            // so that it will treat our connection as a client connection and not reject our RPC
             m_is_registered = false;
-            update_current_server();
+            m_current_server = m_rpc->get_peer(new_address);
+            do_register();
         }
     }, m_coordinates);
 }
@@ -285,60 +288,16 @@ ClientContext::do_set_one_metadata(const std::string& key, const std::string& va
 }
 
 void
-ClientContext::do_get_remote_metadata(const NodeID &node_id, const std::string &key, std::function<void(rpc::Error*, const std::string*)> callback, bool retry) const
-{
-    auto cached_server = m_other_client_cache[node_id];
-    if (cached_server) {
-        auto proxy = cached_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
-
-        proxy->invoke_get_metadata([=](rpc::Error *err, const std::string& value) {
-            if (err) {
-                rpc::RemoteError *remote_err = dynamic_cast<rpc::RemoteError*>(err);
-                if (remote_err) {
-                    switch (remote_err->code()) {
-                    case ENOENT:
-                        if (retry) {
-                            // our cache was stale
-                            m_other_client_cache.erase(node_id);
-                            do_get_remote_metadata(node_id, key, std::move(callback), true);
-                            return;
-                        }
-                        // else the client with that NodeID disappeared or moved
-                        // fallthrough and report an error to the caller
-                    default:
-                        // fallthrough
-                        ;
-                    }
-                }
-
-                callback(err, nullptr);
-                return;
-            } else {
-                callback(nullptr, &value);
-            }
-        }, node_id, key);
-    } else {
-        auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
-
-        proxy->invoke_find_controlling_server([=](rpc::Error *err, net::Address server_address, const NodeIDRange&) {
-            if (err) {
-                callback(err, nullptr);
-                return;
-            } else {
-                m_other_client_cache[node_id] = m_rpc->get_peer(server_address);
-
-                // set retry flag to false so we don't loop again to try and lookup the server
-                // if the server answers ENOENT we know that this client really does not exist
-                do_get_remote_metadata (node_id, key, std::move(callback), false);
-            }
-        }, node_id);
-    }
-}
-
-void
 ClientContext::get_remote_metadata(const NodeID &node_id, const std::string &key, std::function<void(rpc::Error*, const std::string*)> callback) const
 {
-    do_get_remote_metadata(node_id, key, std::move(callback), true);
+    auto proxy = m_current_server->get_proxy<protocol::ServerProxy>(protocol::MASTER_OBJECT_ID);
+
+    proxy->invoke_get_metadata([callback](rpc::Error *err, const std::string& value) {
+        if (err)
+            callback(err, nullptr);
+        else
+            callback(nullptr, &value);
+    }, node_id, key);
 }
 
 void

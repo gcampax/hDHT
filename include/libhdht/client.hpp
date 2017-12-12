@@ -51,8 +51,6 @@ private:
     std::unique_ptr<rpc::Context> m_rpc;
     net::Address m_initial_server;
     std::shared_ptr<rpc::Peer> m_current_server;
-    // cache mapping from other client nodes to the server responsible for them
-    mutable std::map<NodeID, std::shared_ptr<rpc::Peer>> m_other_client_cache;
 
     GeoPoint2D m_coordinates;
     mutable std::unordered_map<std::string, std::string> m_metadata;
@@ -80,9 +78,6 @@ private:
         OnlyChanges
     };
     void flush_metadata_changes(MetadataFlushMode mode);
-
-    void do_get_remote_metadata(const NodeID&, const std::string& key,
-        std::function<void(rpc::Error*, const std::string*)> callback, bool retry) const;
 
 public:
     ClientContext(uv::Loop& loop);

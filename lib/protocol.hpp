@@ -51,7 +51,7 @@ enum class ClientRegistrationResult : uint8_t
 
 typedef std::tuple<net::Address, NodeIDRange> AddressAndRange;
 typedef std::tuple<ClientRegistrationResult, NodeID> ClientRegistrationReply;
-typedef std::tuple<SetLocationResult, NodeID> SetLocationReply;
+typedef std::tuple<SetLocationResult, NodeID, net::Address> SetLocationReply;
 typedef std::unordered_map<std::string, std::string> MetadataType;
 
 

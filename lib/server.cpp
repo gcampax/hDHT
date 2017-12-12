@@ -346,7 +346,7 @@ public:
         ServerNode *new_server = m_table->move_client(m_client_node, new_location);
         if (new_server->is_local()) {
             log(LOG_INFO, "Client is still under our control");
-            reply_set_location(request_id, protocol::SetLocationResult::SameServer, m_client_node->get_id());
+            reply_set_location(request_id, protocol::SetLocationResult::SameServer, m_client_node->get_id(), net::Address());
             return;
         }
 
@@ -358,7 +358,7 @@ public:
         }
         auto self = shared_from_this();
         log(LOG_INFO, "Transfering client to %s", proxy->get_address().to_string().c_str());
-        proxy->invoke_adopt_client([self, request_id, new_location, this](rpc::Error *err) {
+        proxy->invoke_adopt_client([proxy, self, request_id, new_location, this](rpc::Error *err) {
             ClientNode *client_node = m_client_node;
             m_client_node = nullptr;
 
@@ -376,7 +376,7 @@ public:
 
             m_table->forget_client(client_node);
             reply_set_location(request_id, protocol::SetLocationResult::DifferentServer,
-                m_table->get_node_id_for_point(new_location));
+                m_table->get_node_id_for_point(new_location), proxy->get_address());
         }, m_client_node->get_id(), m_client_node->get_coordinates(),
         m_client_node->get_address(), m_client_node->get_all_metadata());
     }
@@ -400,13 +400,35 @@ public:
         if (!node_id.is_valid())
             throw rpc::RemoteError(EINVAL);
 
-        ClientNode *node = m_table->get_existing_client_node(node_id);
-        if (node == nullptr) // this node ID is not here, call find_controlling_server() first
-            throw rpc::RemoteError(ENOENT);
-
         log(LOG_INFO, "Get metadata request for key %s in client %s from %s", key.c_str(),
-            node->get_id().to_string().c_str(), get_peer()->get_listening_address().to_string().c_str());
-        reply_get_metadata(request_id, node->get_metadata(key));
+            node_id.to_string().c_str(), get_peer()->get_listening_address().to_string().c_str());
+
+        ClientNode *node = m_table->get_existing_client_node(node_id);
+        if (node == nullptr) {
+            ServerNode *server = m_table->find_controlling_server(node_id);
+            if (server->is_local()) {
+                // this node ID is not here, but it's supposed to be here, so it does not exist
+                throw rpc::RemoteError(ENOENT);
+            }
+
+            auto proxy = static_cast<RemoteServerNode*>(server)->get_proxy();
+            auto self = shared_from_this();
+            log(LOG_INFO, "Forwarding GetMetadata to %s", proxy->get_address().to_string().c_str());
+            proxy->invoke_get_metadata([request_id, self, this](rpc::Error *err, const std::string& value) {
+                if (err) {
+                    auto remote_err = dynamic_cast<rpc::RemoteError*>(err);
+                    if (remote_err)
+                        reply_error(request_id, *remote_err);
+                    else
+                        reply_error(request_id, EHOSTUNREACH); // Generic network failure
+                    return;
+                } else {
+                    reply_get_metadata(request_id, value);
+                }
+            }, node_id, key);
+        } else {
+            reply_get_metadata(request_id, node->get_metadata(key));
+        }
     }
 
     virtual void handle_find_client_address(uint64_t request_id, NodeID node_id) override

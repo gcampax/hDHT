@@ -20,6 +20,7 @@
 
 #include "../lib/rtree/rtree.hpp"
 
+#undef NDEBUG
 #include <cassert>
 using namespace libhdht::rtree;
 
