@@ -85,7 +85,7 @@ The server has complete information over the intervals it controls, and relies o
 
 
 \subsection{Search Inside a Single Interval}
-For each controlled interval of the Hilbert curve, the server maintains an \textit{Hilbert RTree}~\cite{} of the clients.
+For each controlled interval of the Hilbert curve, the server maintains an \textit{Hilbert R-Tree}~\cite{kamel1993hilbert} of the clients.
 This is a data structure that allows efficient insertion, deletion and query by rectangle.
 
 FINISHME...
@@ -101,7 +101,7 @@ The server then uses the following algorithm:
 \item The algorithm keeps track of a \textit{current point}, initialized to $h_0$.
 \item Then, it checks if the current point is inside the query rectangle.
 \item If so, it finds the interval that contains the current point from the DHT
-\item For a local interval, it uses the RTree to perform the search
+\item For a local interval, it uses the R-Tree to perform the search
 \item For a remote interval, it forwards the search to the server that controls the interval, and merges the result
 \item The algorithm then proceeds at point $h'$ immediately after the end of the interval in the Hilbert curve $h' = (k+1) 2^i$
 \item If the current point is outside the query rectangle, the algorithm sets to current point to the minimum of $h_i$ that is strictly greater than the current point (in other words, it skips to the next corner of the query rectangle in the Hilbert curve).

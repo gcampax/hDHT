@@ -5,5 +5,8 @@ Social running applications such as Strava~\cite{strava} provide an easy way for
 	\item The application should be able to compute similar routes quickly
 	\item Users should not be able to see the exact location of any other user
 \end{itemize}
+
 To satisfy these constraints we present hDHT, a distributed system that combines the geo-distributed key-value lookup capabilities of a distributed hash table (DHT) with the fast, location-based queries enabled by Hilbert R-Trees~\cite{kamel1993hilbert}.
+
+
 This paper proceeds as follows. Section~\ref{section:background} introduces the technologies of DHTs and Hilbert R-Trees. Section ~\ref{section:design} provides a high-level overview of our system architecture. Section~\ref{section:implementation} delves into the implementation details of hDHT. Section~\ref{section:evaluation} highlights some experimental results based on microbenchmarks [TODO: decide if is this necessary]. Section~\ref{section:related-work} discusses alternative approaches to this problem. Section~\ref{section:future-work} enumerates potential next steps for this project and Section~\ref{section:conclusion} concludes.
