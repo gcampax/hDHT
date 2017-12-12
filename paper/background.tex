@@ -1,2 +1,8 @@
 \section{Background} \label{section:background}
-Background goes here.
+In this section we give a brief overview of the core technologies that support hDHT.
+
+\subsection{Distributed hash tables}
+A distributed hash table (DHT) is a decentralized system that supports efficient, distributed key-value lookups by maintaining a subset of the total keyspace on each node. Nodes forward requests for keys that are outside its own keyspace to other nodes in the system by keeping some information about its peers, each of which is responsible for a different segment of the keyspace. Early efforts to study DHTs include Chord~\cite{stoica2001chord}, Gnutella~\cite{}, and Pastry~\cite{rowstron2001pastry}.
+
+\subsection{Hilbert R-Trees}
+Kamel and Faloutsos proposed the idea of a Hilbert R-Tree as a means of performing efficient location-based queries~\cite{kamel1993hilbert}. Their key insight was that by using a Hilbert curve to determine a linear ordering of the entries in the tree, the splitting policy in overflow scenarios can be tuned in such a way that the utilization of the tree is close to 100\%. Each node in a Hilbert R-Tree keeps track of the largest Hilbert value (LHV) among the entries in its subtree, as well as the maximum bounding rectangle (MBR) over all its subtree entries. Entries are then inserted in order of increasing Hilbert value, and the LHV and MBR of each node are adjusted as necessary after every modification to the tree.
