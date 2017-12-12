@@ -3,7 +3,7 @@
 hDHT was implemented as a self contained library, as well as a daemon to act as the server.
 The hDHT library also includes an example command line client, which allows one to test the capabilities of the system without physically moving around.
 
-hDHT is open source, and available on Github~\footnote{\url{https://github.com/gcampax/hDHT}}.
+hDHT is open source, and available on Github~\footnote{\url{https://github.com/gcampax/hDHT}}. We implemented hDHT in approximately 5,000 lines of C++ code.
 
 \subsection{Library Design}
 
@@ -15,7 +15,9 @@ All other objects in the library, including the RTree implementation and the DHT
 
 To aid in code reuse, and reduce disk footprint, the library also includes the full server implementation. The server binary is a shim that initializes the library in server mode.
 
-\subsection{RTree}
+\subsection{R-Tree}
+We built a self-contained R-Tree library from scratch by using the algorithms provided in the Hilbert R-Tree paper~\cite{kamel1993hilbert}. The \texttt{RTree} class provides a minimal interface to allow for inserting data
+into the tree at a particular \texttt{Point} in the 2D space and performing a search using a \texttt{Rectangle}. The search returns a list of \texttt{NodeID}s that are located within the query rectangle.
 
 \subsection{Peer Discovery and Connectivity Requirements}
 
