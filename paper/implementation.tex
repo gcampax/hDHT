@@ -11,7 +11,7 @@ hDHT uses C++, and the libuv library~\footnote{\url{http://libuv.org}} for the e
 It has been tested on Linux and OS X.
 
 The client API of the library consists of a single \texttt{Client} object, which exposes methods to get and set the current location, get and set the local metadata, and perform queries against remote clients.
-All other objects in the library, including the R-Tree implementation and the DHT abstraction, are hidden from library users.
+All other objects in the library, including the RTree implementation and the DHT abstraction, are hidden from library users.
 
 To aid in code reuse, and reduce disk footprint, the library also includes the full server implementation. The server binary is a shim that initializes the library in server mode.
 
