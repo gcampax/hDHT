@@ -37,3 +37,7 @@
 *.log
 *.pdf
 *.blg
+*.fdb_latexmk
+*.fls
+*~
+*.synctex.gz
