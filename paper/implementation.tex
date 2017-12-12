@@ -1,10 +1,35 @@
 \section{Implementation} \label{section:implementation}
-Implementation goes here.
+
+hDHT was implemented as a self contained library, as well as a daemon to act as the server.
+The hDHT library also includes an example command line client, which allows one to test the capabilities of the system without physically moving around.
+
+hDHT is open source, and available on Github~\footnote{\url{https://github.com/gcampax/hDHT}}.
 
 \subsection{Library Design}
+
+hDHT uses C++, and the libuv library~\footnote{\url{http://libuv.org}} for the event loop and asynchronous portable IO.
+It has been tested on Linux and OS X.
+
+The client API of the library consists of a single \texttt{Client} object, which exposes methods to get and set the current location, get and set the local metadata, and perform queries against remote clients.
+All other objects in the library, including the RTree implementation and the DHT abstraction, are hidden from library users.
+
+To aid in code reuse, and reduce disk footprint, the library also includes the full server implementation. The server binary is a shim that initializes the library in server mode.
 
 \subsection{RTree}
 
 \subsection{Peer Discovery and Connectivity Requirements}
 
+In the current implementation, all peers are expected to be reachable by a direct TCP connection at least in one direction.
+
+Peers are specified by address (IP and port) on the command line of the server.
+If no peer is specified when the server starts, the server assumes control of the whole table, and waits for incoming connections.
+All servers also listen for incoming connections on a specified IP and port, and publish this address to other servers.
+
 \subsection{RPC Library}
+
+To keep the library small, and avoid dependencies (especially dependencies that the authors were not familiar with when the project was started), hDHT uses a small home-grown RPC library, over TCP sockets.
+
+The library uses a pseudo-IDL defined using the C++ preprocessor, which makes it avoid a separate compilation step, and makes it easy to integrate with IDEs and build systems.
+It then makes use of C++ template metaprogramming to generate safe and efficient marshalling code.
+
+All RPC requests in the library are asynchronous; the caller passes a callback (an \texttt{std::function}) to be notified of the completion of the RPC.

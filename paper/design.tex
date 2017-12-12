@@ -25,7 +25,8 @@ Other servers, not shown, control the rest the DHT curve.
 \subsection{Client Interface}
 
 Clients of hDHT are likely to be on a mobile device, as they should follow and record precisely the location of the user.
-For this reason, our design moves most of the computation and networking to the server.
+Servers cannot perform RPCs towards the clients, because the clients might be behind a restrictive firewall.
+For this reason, our design moves most of the computation and networking to the server, and initiates all client-server communication from the client.
 
 Each client is identified by a 160-bit node identifier.
 This identifier is opaque to the client.
@@ -70,10 +71,58 @@ The remaining low bits are assigned randomly.
 This is a locality sensitive hashing because clients who are phyisically close will have similar Hilbert curve values, and thus will share some of the high bits of their node IDs.
 Additionally, clients with similar high bits in the node IDs are more likely to be assigned to the same server, which improves the efficiency of serving requests.
 
+Furthermore, hDHT must partition the grid in a way that each server controls a rectangular region.
+This way, search requests can be served efficiently by dividing the query into disjoint rectangles.
+To do so, the Hilbert curve must be partitioned into \textit{intervals} of the form:
+\begin{align}
+\left[k 2^i, (k+1) 2^i\right)
+\end{align}
+(with $k$, $i$ integers, and $i$ less than the order of the curve).
+Intervals of this form can be shown to be non-overlapping in the grid.
 
-\subsection{Serving Individual Requests}
+Each server controls one or more of these intervals.
+The server has complete information over the intervals it controls, and relies on other servers for the rest of the grid.
 
-\subsection{Routing with Incomplete Information}
 
+\subsection{Search Inside a Single Interval}
+For each controlled interval of the Hilbert curve, the server maintains an \textit{Hilbert RTree}~\cite{} of the clients.
+This is a data structure that allows efficient insertion, deletion and query by rectangle.
 
-Servers automatically move the metadata around during DHT rebalancing.
+FINISHME...
+
+\subsection{Search Across the Whole Space}
+To perform a search, the server needs to efficiently identify which intervals of the DHT are partially covered by the search rectangle, and then perform the search within the interval.
+
+The takes advantage of an important property of Hilbert curves: if a point is outside a rectangle in the Hilbert curve, all points on the curve between that point and the next rectangle corner are also outside the corner.
+
+The server then uses the following algorithm:
+\begin{enumerate}
+\item First it computes the Hilbert values $h_0, h_1, h_2, h_3$ of the four corners of the rectangle, where $h_0$ is the smallest Hilbert value and $h_3$ is the largest
+\item The algorithm keeps track of a \textit{current point}, initialized to $h_0$.
+\item Then, it checks if the current point is inside the query rectangle.
+\item If so, it finds the interval that contains the current point from the DHT
+\item For a local interval, it uses the RTree to perform the search
+\item For a remote interval, it forwards the search to the server that controls the interval, and merges the result
+\item The algorithm then proceeds at point $h'$ immediately after the end of the interval in the Hilbert curve $h' = (k+1) 2^i$
+\item If the current point is outside the query rectangle, the algorithm sets to current point to the minimum of $h_i$ that is strictly greater than the current point (in other words, it skips to the next corner of the query rectangle in the Hilbert curve).
+\item The algorithm terminates when the current point is greater than $h_3$.
+\end{enumerate}
+
+\subsection{Routing and Load Balancing}
+
+To make it possible for servers to join and leave the DHT easily, each server does not keep precise information on which intervals are owned by whom.
+
+At initialization time, the server starts with a single peer, which it assumes controls the whole table.
+The server registers with this initial peer, who responds with a list of interval it knows about.
+The server then registers with each of the newly discovered peers, which will further send more and more precise information.
+
+Additionally, when a new server joins the DHT, each peers that learns about the new server performs load balancing on the portion of the table it controls, by spilling the intervals it controls and transferring control of the newly created subintervals to the new server.
+Intervals must be split in half at each step, because they must be power-of-2 sized to be rectangular in the grid.
+
+An interval will be considered for splitting if it is larger than a threshold (in logarithmic size), or if the number of clients exceeds a threshold.
+In the former case, the interval is split in half only once, and one half is sent to the new server.
+In the latter case, the newly created half interval with the most clients is split again until the number of clients is below the threshold.
+Then, the half interval with the least clients is sent to the new server.
+
+Servers automatically move the metadata and client IDs during DHT rebalancing, but they do not inform clients.
+Clients learn of the rebalancing by receiving a redirection error the next time they attempt to perform a request.
