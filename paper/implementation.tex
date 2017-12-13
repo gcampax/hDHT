@@ -30,8 +30,6 @@ All servers also listen for incoming connections on a specified IP and port, and
 \subsection{RPC Library}
 
 To keep the library small, and avoid dependencies (especially dependencies that the authors were not familiar with when the project was started), hDHT uses a small home-grown RPC library, over TCP sockets.
-
 The library uses a pseudo-IDL defined using the C++ preprocessor, which makes it avoid a separate compilation step, and makes it easy to integrate with IDEs and build systems.
 It then makes use of C++ template metaprogramming to generate safe and efficient marshalling code.
-
-All RPC requests in the library are asynchronous; the caller passes a callback (an \texttt{std::function}) to be notified of the completion of the RPC.
+All RPC requests in the library are asynchronous; the caller passes a callback to be notified of the completion of the RPC.

@@ -14,8 +14,8 @@ In this section, we introduce the design, while Section~\ref{section:implementat
 \end{figure}
 
 The architecture of hDHT is shown in Figure~\ref{fig:arch}.
-In hDHT, the server control one or more contiguous segments on a \textit{consistent hashing ring}~\cite{}.
-Each client has a position in the hashing ring which is determined based on the client physical location, using the \textit{Hilbert curve function}~\cite{}.
+In hDHT, the server control one or more contiguous segments on a \textit{consistent hashing ring}.
+Each client has a position in the hashing ring which is determined based on the client physical location, using the \textit{Hilbert curve function}.
 Each client thus \textit{registers} with the server that controls the segment containing the client.
 
 In the example, Server 1 controls the two green segments, and stores the data for two clients.
@@ -82,18 +82,14 @@ Intervals of this form can be shown to be non-overlapping in the grid.
 
 Each server controls one or more of these intervals.
 The server has complete information over the intervals it controls, and relies on other servers for the rest of the grid.
-
-
-\subsection{Search Inside a Single Interval}
+%\subsection{Search Inside a Single Interval}
 For each controlled interval of the Hilbert curve, the server maintains an \textit{Hilbert R-Tree}~\cite{kamel1993hilbert} of the clients.
 This is a data structure that allows efficient insertion, deletion and query by rectangle.
 
-FINISHME...
-
-\subsection{Search Across the Whole Space}
+\subsection{Performing Search}
 To perform a search, the server needs to efficiently identify which intervals of the DHT are partially covered by the search rectangle, and then perform the search within the interval.
 
-The takes advantage of an important property of Hilbert curves: if a point is outside a rectangle in the Hilbert curve, all points on the curve between that point and the next rectangle corner are also outside the corner.
+The algorithm takes advantage of an important property of Hilbert curves: if a point is outside a rectangle in the Hilbert curve, all points on the curve between that point and the next rectangle corner are also outside the rectangle.
 
 The server then uses the following algorithm:
 \begin{algorithm}[H]
@@ -119,7 +115,9 @@ The server then uses the following algorithm:
   \end{algorithmic}
 \end{algorithm}
 
-[TODO insert some discussion about algorithm here?]
+The complexity of the algorithm is linear in the number of intervals spanned by the query rectangle.
+The server keeps this number low by merging adjacent local intervals.
+
 % \begin{enumerate}
 % \item First it computes the Hilbert values $h_0, h_1, h_2, h_3$ of the four corners of the rectangle, where $h_0$ is the smallest Hilbert value and $h_3$ is the largest
 % \item The algorithm keeps track of a \textit{current point}, initialized to $h_0$.
@@ -151,4 +149,6 @@ Then, the half interval with the least clients is sent to the new server.
 Servers automatically move the metadata and client IDs during DHT rebalancing, but they do not inform clients.
 Clients learn of the rebalancing by receiving a redirection error the next time they attempt to perform a request.
 
-[TODO explicitly state that this routing scheme is $\mathcal{O}(\log n)$?]
+Under this model, a request can be routed to the corresponding server in at most $O(\log n)$ steps, where $n = 2^k$ is the number of points in the grid.
+This is because at every step the interval is split at least in half.
+In the common case of a fully populated table where each server has interval of roughly the same size this scheme is logarithmic also in the number of nodes, and thus optimal.
