@@ -38,12 +38,12 @@ InternalEntry::~InternalEntry() {
 
 }
 
-std::shared_ptr<Rectangle> InternalEntry::get_MBR() {
-    return node_->get_MBR();
+std::shared_ptr<Rectangle> InternalEntry::get_mbr() {
+    return node_->get_mbr();
 }
 
-NodeEntry::HilbertValue InternalEntry::get_LHV() {
-    return node_->get_LHV();
+NodeEntry::HilbertValue InternalEntry::get_lhv() {
+    return node_->get_lhv();
 }
 
 Node* InternalEntry::get_node() {

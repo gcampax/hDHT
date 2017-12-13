@@ -46,20 +46,20 @@ void Node::set_leaf(bool status) {
     leaf_ = status;
 }
 
-std::shared_ptr<Rectangle> Node::get_MBR() {
+std::shared_ptr<Rectangle> Node::get_mbr() {
     return mbr_;
 }
 
-Node::HilbertValue Node::get_LHV() {
+Node::HilbertValue Node::get_lhv() {
     return lhv_;
 }
 
-void Node::adjust_MBR() {
+void Node::adjust_mbr() {
     if (entries_.size() == 0) {
         mbr_.reset(new Rectangle());
         return;
     }
-    std::shared_ptr<Rectangle> current_mbr = entries_[0]->get_MBR();
+    std::shared_ptr<Rectangle> current_mbr = entries_[0]->get_mbr();
     const Point& current_mbr_upper = current_mbr->get_upper();
     const Point& current_mbr_lower = current_mbr->get_lower();
 
@@ -67,7 +67,7 @@ void Node::adjust_MBR() {
     Point new_mbr_lower(current_mbr_lower);
 
     for (const auto& entry : entries_) {
-        std::shared_ptr<Rectangle> mbr = entry->get_MBR();
+        std::shared_ptr<Rectangle> mbr = entry->get_mbr();
         const Point& upper = mbr->get_upper();
         const Point& lower = mbr->get_lower();
 
@@ -81,17 +81,17 @@ void Node::adjust_MBR() {
     mbr_.reset(new Rectangle(new_mbr_upper, new_mbr_lower));
 }
 
-void Node::adjust_LHV() {
+void Node::adjust_lhv() {
     if (entries_.size() == 0) {
         lhv_ = kDefaultHilbertValue;
         return;
     }
 
-    const HilbertValue current_lhv = entries_[0]->get_LHV();
+    const HilbertValue current_lhv = entries_[0]->get_lhv();
     HilbertValue new_lhv = current_lhv;
 
     for (const auto& entry : entries_) {
-        new_lhv = std::max(new_lhv, entry->get_LHV());
+        new_lhv = std::max(new_lhv, entry->get_lhv());
     }
 
     lhv_ = new_lhv;
@@ -146,10 +146,10 @@ void Node::clear_entries() {
 void Node::insert_leaf_entry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is leaf
     // TODO(keshav2): Assert node has capacity
-    const HilbertValue entry_lhv = entry->get_LHV();
+    const HilbertValue entry_lhv = entry->get_lhv();
     auto it = entries_.begin();
     for (; it != entries_.end(); it++) {
-        if (entry_lhv < (*it)->get_LHV()) {
+        if (entry_lhv < (*it)->get_lhv()) {
             entries_.insert(it, entry);
             return;
         }
@@ -160,11 +160,11 @@ void Node::insert_leaf_entry(std::shared_ptr<NodeEntry> entry) {
 void Node::insert_internal_entry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is internal
     // TODO(keshav2): Assert node has capacity
-    const HilbertValue entry_lhv = entry->get_LHV();
+    const HilbertValue entry_lhv = entry->get_lhv();
     auto it = entries_.begin();
     bool inserted = false;
     for (; it != entries_.end(); it++) {
-        if (entry_lhv < (*it)->get_LHV()) {
+        if (entry_lhv < (*it)->get_lhv()) {
             it = entries_.insert(it, entry);
             inserted = true;
             break;

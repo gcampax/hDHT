@@ -51,10 +51,10 @@ class Node {
     bool is_leaf() const;
 
     // Returns the maximum bounding rectangle (MBR) of the entries rooted at this Node
-    std::shared_ptr<Rectangle> get_MBR();
+    std::shared_ptr<Rectangle> get_mbr();
 
     // Returns the largest Hilbert value (LHV) of the entries rooted at this Node
-    HilbertValue get_LHV();
+    HilbertValue get_lhv();
 
     // Returns the list of entries stored at this Node
     std::vector<std::shared_ptr<NodeEntry>> get_entries() const;
@@ -100,10 +100,10 @@ class Node {
     void clear_entries();
 
     // Recomputes the MBR for this Node
-    void adjust_MBR();
+    void adjust_mbr();
 
     // Recomputes the LHV for this Node
-    void adjust_LHV();
+    void adjust_lhv();
 
   private:
     Node* parent_;

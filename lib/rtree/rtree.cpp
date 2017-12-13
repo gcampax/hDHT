@@ -51,8 +51,8 @@ void RTree::insert(const Point& pt, void *data) {
     Node* new_leaf = nullptr;
     if (leaf->has_capacity()) {
         leaf->insert_leaf_entry(entry);
-        leaf->adjust_MBR();
-        leaf->adjust_LHV();
+        leaf->adjust_mbr();
+        leaf->adjust_lhv();
     } else {
         new_leaf = RTreeHelper::handle_overflow(leaf, entry, siblings);
     }

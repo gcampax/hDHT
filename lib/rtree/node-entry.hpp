@@ -38,10 +38,10 @@ class NodeEntry {
     virtual ~NodeEntry();
 
     // Get the maximum bounding rectangle (MBR) of this NodeEntry
-    virtual std::shared_ptr<Rectangle> get_MBR() = 0;
+    virtual std::shared_ptr<Rectangle> get_mbr() = 0;
 
     // Get the largest Hilbert value (LHV) of this NodeEntry
-    virtual HilbertValue get_LHV() = 0;
+    virtual HilbertValue get_lhv() = 0;
 
     // Returns true if this entry is a leaf entry
     virtual bool is_leaf_entry() = 0;
