@@ -37,26 +37,73 @@ class Node {
   public:
     typedef uint64_t HilbertValue;
 
+    // Node constructor
     Node();
+
+    // Node destructor
     ~Node();
+
+    // ----------//
+    // Accessors //
+    // ----------//
+
+    // Returns true if this Node is a leaf
     bool isLeaf() const;
-    void setLeaf(bool status);
+
+    // Returns the maximum bounding rectangle (MBR) of the entries rooted at this Node
     std::shared_ptr<Rectangle> getMBR();
+
+    // Returns the largest Hilbert value (LHV) of the entries rooted at this Node
     HilbertValue getLHV();
-    void adjustMBR();
-    void adjustLHV();
+
+    // Returns the list of entries stored at this Node
     std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
-    void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
-    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+
+    // Returns a pointer to this Node's parent
     Node* getParent() const;
+
+    // Returns a pointer to this Node's previous sibling
     Node* getPrevSibling() const;
+
+    // Returns a pointer to this Node's next sibling
     Node* getNextSibling() const;
-    void setParent(Node* node);
-    void setPrevSibling(Node* node);
-    void setNextSibling(Node* node);
+
+    // Sets the Node to a leaf node if <status> is true
+    void setLeaf(bool status);
+
+    // Returns a list of nodes to assist with the overflow handling procedure
     std::vector<Node*> getCooperatingSiblings();
-    void clearEntries();
+
+    // Returns true if the Node has less than kMaxCapacity entries
     bool hasCapacity() const;
+
+    // ----------//
+    // Modifiers //
+    // ----------//
+
+    // Adds <entry> to this Node, assuming this is a leaf node
+    void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
+
+    // Adds <entry> to this Node, assuming this is an internal node
+    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+
+    // Sets the parent pointer of this Node
+    void setParent(Node* node);
+
+    // Sets the previous sibling pointer of this Node
+    void setPrevSibling(Node* node);
+
+    // Sets the next sibling pointer of this node
+    void setNextSibling(Node* node);
+
+    // Clears all entries stored at this Node
+    void clearEntries();
+
+    // Recomputes the MBR for this Node
+    void adjustMBR();
+
+    // Recomputes the LHV for this Node
+    void adjustLHV();
 
   private:
     Node* parent_;
