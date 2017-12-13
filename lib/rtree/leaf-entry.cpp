@@ -33,15 +33,15 @@ LeafEntry::LeafEntry(const Point& pt, HilbertValue lhv, void* data) : lhv_(lhv),
     mbr_ = std::make_shared<Rectangle>(pt, pt);
 }
 
-std::shared_ptr<Rectangle> LeafEntry::getMBR() {
+std::shared_ptr<Rectangle> LeafEntry::get_MBR() {
     return mbr_;
 }
 
-NodeEntry::HilbertValue LeafEntry::getLHV() {
+NodeEntry::HilbertValue LeafEntry::get_LHV() {
     return lhv_;
 }
 
-bool LeafEntry::isLeafEntry() {
+bool LeafEntry::is_leaf_entry() {
     return true;
 }
 

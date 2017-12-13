@@ -34,9 +34,9 @@ class LeafEntry : public NodeEntry {
   public:
     LeafEntry(const Point& pt, HilbertValue lhv, void* data);
     ~LeafEntry() {};
-    std::shared_ptr<Rectangle> getMBR() override;
-    HilbertValue getLHV() override;
-    bool isLeafEntry() override;
+    std::shared_ptr<Rectangle> get_MBR() override;
+    HilbertValue get_LHV() override;
+    bool is_leaf_entry() override;
 
     void *get_data() const
     {

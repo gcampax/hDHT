@@ -48,62 +48,62 @@ class Node {
     // ----------//
 
     // Returns true if this Node is a leaf
-    bool isLeaf() const;
+    bool is_leaf() const;
 
     // Returns the maximum bounding rectangle (MBR) of the entries rooted at this Node
-    std::shared_ptr<Rectangle> getMBR();
+    std::shared_ptr<Rectangle> get_MBR();
 
     // Returns the largest Hilbert value (LHV) of the entries rooted at this Node
-    HilbertValue getLHV();
+    HilbertValue get_LHV();
 
     // Returns the list of entries stored at this Node
-    std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
+    std::vector<std::shared_ptr<NodeEntry>> get_entries() const;
 
     // Returns a pointer to this Node's parent
-    Node* getParent() const;
+    Node* get_parent() const;
 
     // Returns a pointer to this Node's previous sibling
-    Node* getPrevSibling() const;
+    Node* get_prev_sibling() const;
 
     // Returns a pointer to this Node's next sibling
-    Node* getNextSibling() const;
+    Node* get_next_sibling() const;
 
     // Sets the Node to a leaf node if <status> is true
-    void setLeaf(bool status);
+    void set_leaf(bool status);
 
     // Returns a list of nodes to assist with the overflow handling procedure
-    std::vector<Node*> getCooperatingSiblings();
+    std::vector<Node*> get_cooperating_siblings();
 
     // Returns true if the Node has less than kMaxCapacity entries
-    bool hasCapacity() const;
+    bool has_capacity() const;
 
     // ----------//
     // Modifiers //
     // ----------//
 
     // Adds <entry> to this Node, assuming this is a leaf node
-    void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
+    void insert_leaf_entry(std::shared_ptr<NodeEntry> entry);
 
     // Adds <entry> to this Node, assuming this is an internal node
-    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
+    void insert_internal_entry(std::shared_ptr<NodeEntry> entry);
 
     // Sets the parent pointer of this Node
-    void setParent(Node* node);
+    void set_parent(Node* node);
 
     // Sets the previous sibling pointer of this Node
-    void setPrevSibling(Node* node);
+    void set_prev_sibling(Node* node);
 
     // Sets the next sibling pointer of this node
-    void setNextSibling(Node* node);
+    void set_next_sibling(Node* node);
 
     // Clears all entries stored at this Node
-    void clearEntries();
+    void clear_entries();
 
     // Recomputes the MBR for this Node
-    void adjustMBR();
+    void adjust_MBR();
 
     // Recomputes the LHV for this Node
-    void adjustLHV();
+    void adjust_LHV();
 
   private:
     Node* parent_;

@@ -35,10 +35,10 @@ class InternalEntry : public NodeEntry {
   public:
     InternalEntry(Node* node);
     ~InternalEntry();
-    std::shared_ptr<Rectangle> getMBR() override;
-    HilbertValue getLHV() override;
-    Node* getNode();
-    bool isLeafEntry() override;
+    std::shared_ptr<Rectangle> get_MBR() override;
+    HilbertValue get_LHV() override;
+    Node* get_node();
+    bool is_leaf_entry() override;
   private:
     Node* node_;
 };

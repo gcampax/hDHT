@@ -36,36 +36,36 @@ namespace rtree {
 
 class RTreeHelper {
   public:
-    static Node* chooseLeaf(Node* root, Node::HilbertValue hv_to_insert);
+    // Chooses the appropriate leaf node of the R-Tree rooted at <root> to insert <hv_to_insert> into
+    static Node* choose_leaf(Node* root, Node::HilbertValue hv_to_insert);
 
-    static std::vector<std::shared_ptr<LeafEntry>> search(
-                                 const Rectangle& query, Node* root);
+    // Returns a list of LeafEntry pointers in the tree rooted at <root> that are contained with <query>
+    static std::vector<std::shared_ptr<LeafEntry>> search(const Rectangle& query, Node* root);
 
-    static Node* adjustTree(Node* root, Node* leaf, Node* new_leaf,
-                            std::vector<Node*>& siblings);
+    // Rebalances tree rooted at <root> after insertion
+    static Node* adjust_tree(Node* root, Node* leaf, Node* new_leaf, std::vector<Node*>& siblings);
 
-    static Node* handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
-                                std::vector<Node*>& siblings);
+    // Takes care of the case where adding a new entry to a node increases its capacity beyond the limit
+    static Node* handle_overflow(Node* node, std::shared_ptr<NodeEntry> entry, std::vector<Node*>& siblings);
 
-    static void distributeEntries(
-                        std::vector<std::shared_ptr<NodeEntry>>& entries,
-                        std::vector<Node*>& siblings);
+    // Re-distributes <entries> among the Nodes in <siblings>
+    static void distribute_entries(std::vector<std::shared_ptr<NodeEntry>>& entries, std::vector<Node*>& siblings);
 
-    static void insert_entry(std::vector<std::shared_ptr<NodeEntry>>& entries,
-                             const std::shared_ptr<NodeEntry>& entry);
+    // Inserts <entry> into <entries> in increasing order of LHV
+    static void insert_entry(std::vector<std::shared_ptr<NodeEntry>>& entries, const std::shared_ptr<NodeEntry>& entry);
 
     template<typename Callback>
     static void foreach_entry(Node* root, const Callback& callback)
     {
-        if (root->isLeaf()) {
-            for (const auto& entry : root->getEntries()) {
-                assert(entry->isLeafEntry());
+        if (root->is_leaf()) {
+            for (const auto& entry : root->get_entries()) {
+                assert(entry->is_leaf_entry());
                 callback(std::static_pointer_cast<LeafEntry>(entry));
             }
         } else {
-            for (const auto& entry : root->getEntries()) {
-                assert(!entry->isLeafEntry());
-                foreach_entry(std::static_pointer_cast<InternalEntry>(entry)->getNode(), callback);
+            for (const auto& entry : root->get_entries()) {
+                assert(!entry->is_leaf_entry());
+                foreach_entry(std::static_pointer_cast<InternalEntry>(entry)->get_node(), callback);
             }
         }
     }

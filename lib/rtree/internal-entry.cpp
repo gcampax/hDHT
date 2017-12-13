@@ -38,19 +38,19 @@ InternalEntry::~InternalEntry() {
 
 }
 
-std::shared_ptr<Rectangle> InternalEntry::getMBR() {
-    return node_->getMBR();
+std::shared_ptr<Rectangle> InternalEntry::get_MBR() {
+    return node_->get_MBR();
 }
 
-NodeEntry::HilbertValue InternalEntry::getLHV() {
-    return node_->getLHV();
+NodeEntry::HilbertValue InternalEntry::get_LHV() {
+    return node_->get_LHV();
 }
 
-Node* InternalEntry::getNode() {
+Node* InternalEntry::get_node() {
     return node_;
 }
 
-bool InternalEntry::isLeafEntry() {
+bool InternalEntry::is_leaf_entry() {
     return false;
 }
 
