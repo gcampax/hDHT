@@ -58,7 +58,7 @@ Client node IDs define the position of a client in the consistent hashing ring.
 To facilitate location based queries, the node IDs are generated using a \textit{locality sensitive hash} that uses a Hilbert curve.
 
 A Hilbert curve, or \textit{space-filling curve}, is a curve that passes all points in a grid exactly once and does not self intersect.
-Hilbert curve can be constructed for grids of arbitrary dimension.
+The Hilbert curve can be constructed for grids of arbitrary dimension.
 The Hilbert curve of order $k$, which covers the grid of size $2^k \times 2^k$, is constructed as a fractal, by refining the Hilbert curve of order $k-1$.
 An efficient $O(k)$ algorithm exists to convert any point to the Hilbert curve to its coordinates in the grid and viceversa.
 
@@ -96,17 +96,41 @@ To perform a search, the server needs to efficiently identify which intervals of
 The takes advantage of an important property of Hilbert curves: if a point is outside a rectangle in the Hilbert curve, all points on the curve between that point and the next rectangle corner are also outside the corner.
 
 The server then uses the following algorithm:
-\begin{enumerate}
-\item First it computes the Hilbert values $h_0, h_1, h_2, h_3$ of the four corners of the rectangle, where $h_0$ is the smallest Hilbert value and $h_3$ is the largest
-\item The algorithm keeps track of a \textit{current point}, initialized to $h_0$.
-\item Then, it checks if the current point is inside the query rectangle.
-\item If so, it finds the interval that contains the current point from the DHT
-\item For a local interval, it uses the R-Tree to perform the search
-\item For a remote interval, it forwards the search to the server that controls the interval, and merges the result
-\item The algorithm then proceeds at point $h'$ immediately after the end of the interval in the Hilbert curve $h' = (k+1) 2^i$
-\item If the current point is outside the query rectangle, the algorithm sets to current point to the minimum of $h_i$ that is strictly greater than the current point (in other words, it skips to the next corner of the query rectangle in the Hilbert curve).
-\item The algorithm terminates when the current point is greater than $h_3$.
-\end{enumerate}
+\begin{algorithm}[H]
+  \caption{hDHT Routing}
+  \begin{algorithmic}[1]
+  	\State \textit{query} $\gets$ search rectangle
+  	\State Compute $h_0, h_1, h_2, h_3$ of the 4 corners of \textit{query} \Comment{$h_0$ is the smallest Hilbert value, $h_3$ is the largest}
+    \State \textit{current\_point} $\gets h_0$
+    \While{\textit{current\_point} $\leq h_3$}
+     	\If{\textit{query} contains \textit{current\_point}}
+     		\State Retrieve interval $I$ containing \textit{current\_point} from DHT
+     		\If{$I$ is local interval}
+     			\State Use local R-Tree to perform search
+     		\Else
+     			\State Forward search to the server that contains $I$
+     			\State Merge the results
+     		\EndIf
+     		\State \textit{current\_point} $\gets h', h' = (k+1) 2^i$ 
+     	\Else
+     		\State \textit{current\_point} $\gets \{\text{min}\ h_i \mid h_i > \textit{current\_point} \}$ 
+     	\EndIf
+    \EndWhile
+  \end{algorithmic}
+\end{algorithm}
+
+[TODO insert some discussion about algorithm here?]
+% \begin{enumerate}
+% \item First it computes the Hilbert values $h_0, h_1, h_2, h_3$ of the four corners of the rectangle, where $h_0$ is the smallest Hilbert value and $h_3$ is the largest
+% \item The algorithm keeps track of a \textit{current point}, initialized to $h_0$.
+% \item Then, it checks if the current point is inside the query rectangle.
+% \item If so, it finds the interval that contains the current point from the DHT
+% \item For a local interval, it uses the R-Tree to perform the search
+% \item For a remote interval, it forwards the search to the server that controls the interval, and merges the result
+% \item The algorithm then proceeds at point $h'$ immediately after the end of the interval in the Hilbert curve $h' = (k+1) 2^i$
+% \item If the current point is outside the query rectangle, the algorithm sets to current point to the minimum of $h_i$ that is strictly greater than the current point (in other words, it skips to the next corner of the query rectangle in the Hilbert curve).
+% \item The algorithm terminates when the current point is greater than $h_3$.
+% \end{enumerate}
 
 \subsection{Routing and Load Balancing}
 
@@ -126,3 +150,5 @@ Then, the half interval with the least clients is sent to the new server.
 
 Servers automatically move the metadata and client IDs during DHT rebalancing, but they do not inform clients.
 Clients learn of the rebalancing by receiving a redirection error the next time they attempt to perform a request.
+
+[TODO explicitly state that this routing scheme is $\mathcal{O}(\log n)$?]
