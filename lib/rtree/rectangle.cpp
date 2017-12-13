@@ -39,7 +39,7 @@ Rectangle::Rectangle(const std::pair<uint64_t, uint64_t>& upper,
 
 }
 
-std::pair<uint64_t, uint64_t> Rectangle::getCenter() const {
+std::pair<uint64_t, uint64_t> Rectangle::get_center() const {
     return std::make_pair((upper_.first + lower_.first) / 2,
                           (upper_.second + lower_.second) / 2);
 }

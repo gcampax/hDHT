@@ -543,7 +543,7 @@ public:
 
                 delete this;
             }
-        }, rect.getLower(), rect.getUpper(), hilbert_bounds);
+        }, rect.get_lower(), rect.get_upper(), hilbert_bounds);
     }
 };
 
@@ -553,16 +553,16 @@ Table::get_rectangle_for_points(const GeoPoint2D &upper, const GeoPoint2D &lower
     auto rectangle = rtree::Rectangle(upper.to_fixed_point(), lower.to_fixed_point());
 
     uint64_t mask = ((1ULL << (m_resolution/2)) - 1) << (64 - (m_resolution/2));
-    rectangle.getUpper().first &= mask;
-    rectangle.getUpper().first >>= (64 - (m_resolution/2));
-    rectangle.getUpper().second &= mask;
-    rectangle.getUpper().second >>= (64 - (m_resolution/2));
-    rectangle.getLower().first &= mask;
-    rectangle.getLower().first >>= (64 - (m_resolution/2));
-    rectangle.getLower().second &= mask;
-    rectangle.getLower().second >>= (64 - (m_resolution/2));
+    rectangle.get_upper().first &= mask;
+    rectangle.get_upper().first >>= (64 - (m_resolution/2));
+    rectangle.get_upper().second &= mask;
+    rectangle.get_upper().second >>= (64 - (m_resolution/2));
+    rectangle.get_lower().first &= mask;
+    rectangle.get_lower().first >>= (64 - (m_resolution/2));
+    rectangle.get_lower().second &= mask;
+    rectangle.get_lower().second >>= (64 - (m_resolution/2));
 
-    assert(rectangle.getLower() <= rectangle.getUpper());
+    assert(rectangle.get_lower() <= rectangle.get_upper());
 
     return rectangle;
 }
@@ -574,7 +574,7 @@ Table::search_clients(const rtree::Rectangle& rectangle, uint64_t min_hilbert_va
 
     uint64_t hilbert_corners[4];
     for (int i = 0; i < 4; i++)
-        hilbert_corners[i] = point_to_hilbert(m_resolution, rectangle.getCorner(rectangle_corners[i]));
+        hilbert_corners[i] = point_to_hilbert(m_resolution, rectangle.get_corner(rectangle_corners[i]));
 
     int last_corner = 0;
 

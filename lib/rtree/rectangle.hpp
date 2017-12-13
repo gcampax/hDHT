@@ -32,27 +32,42 @@ typedef std::pair<uint64_t, uint64_t> Point;
 // An 2-dimensional rectangle
 class Rectangle {
   public:
+    // Default Rectangle constructor
     Rectangle();
+
+    // Rectangle constructor
     Rectangle(const Point& upper, const Point& lower);
+
+    // Rectangle destructor
     ~Rectangle() {}
-    Point getCenter() const;
-    const Point& getLower() const
+
+    // Get the center of the Rectangle
+    Point get_center() const;
+
+    // Get the lower point of the Rectangle (the lower-left corner)
+    const Point& get_lower() const
     {
         return lower_;
     }
-    const Point& getUpper() const
-    {
-        return upper_;
-    }
-    Point& getLower()
+
+    Point& get_lower()
     {
         return lower_;
     }
-    Point& getUpper()
+
+    // Get the upper point of the Rectangle (the upper-right corner)
+    const Point& get_upper() const
     {
         return upper_;
     }
-    Point getCorner(const int corner[2]) const
+
+    Point& get_upper()
+    {
+        return upper_;
+    }
+
+    // Get a corner of the rectangle
+    Point get_corner(const int corner[2]) const
     {
         uint64_t x, y;
         if (corner[0])
@@ -66,9 +81,16 @@ class Rectangle {
         return std::make_pair(x, y);
     }
 
+    // Returns true if <other> itersects with this Rectangle
     bool intersects(const Rectangle& other) const;
+
+    // Returns the intersecting Rectangle between <one> and <two>
     static Rectangle intersection(const Rectangle& one, const Rectangle& two);
+
+    // Returns true if <other> is contained entirely in this Rectangle
     bool contains(const Rectangle& other) const;
+
+    // Returns true if <pt> is contained in this Rectangle
     bool contains(const Point& pt) const;
 
   private:

@@ -160,7 +160,7 @@ public:
         cout << "Registered! Current Node ID: " << get_current_node_id().to_hex() << endl;
     }
 
-    virtual void read_line(uv::Error err, uv::Buffer&& line)
+    virtual void read_line(uv::Error err, uv::Buffer&& line) override
     {
         uv::BufferInputStringBuf stringbuf(std::move(line));
         std::istream parser(&stringbuf);

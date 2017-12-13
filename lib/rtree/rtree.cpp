@@ -40,26 +40,25 @@ void RTree::insert(const Point& pt, void *data) {
     std::vector<Node*> siblings;
 
     // Find the appropriate leaf node
-    Node* leaf = RTreeHelper::chooseLeaf(this->root_, hv);
+    Node* leaf = RTreeHelper::choose_leaf(this->root_, hv);
     if (leaf == nullptr) {
         leaf = new Node();
-        leaf->setLeaf(true);
+        leaf->set_leaf(true);
         root_ = leaf;
     }
 
     // Insert r in a leaf node
     Node* new_leaf = nullptr;
-    if (leaf->hasCapacity()) {
-        leaf->insertLeafEntry(entry);
-        leaf->adjustMBR();
-        leaf->adjustLHV();
+    if (leaf->has_capacity()) {
+        leaf->insert_leaf_entry(entry);
+        leaf->adjust_mbr();
+        leaf->adjust_lhv();
     } else {
-        new_leaf = RTreeHelper::handleOverflow(leaf, entry, siblings);
+        new_leaf = RTreeHelper::handle_overflow(leaf, entry, siblings);
     }
 
     // Propogate changes upward
-    this->root_ = RTreeHelper::adjustTree(this->root_, leaf, new_leaf,
-                                          siblings);
+    this->root_ = RTreeHelper::adjust_tree(this->root_, leaf, new_leaf, siblings);
 
     m_size++;
 }

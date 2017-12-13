@@ -33,12 +33,23 @@ namespace rtree {
 // A data entry for an internal RTree node.
 class InternalEntry : public NodeEntry {
   public:
+    // InternalEntry constructor
     InternalEntry(Node* node);
+
+    // Internal Entry destructor
     ~InternalEntry();
-    std::shared_ptr<Rectangle> getMBR() override;
-    HilbertValue getLHV() override;
-    Node* getNode();
-    bool isLeafEntry() override;
+
+    // Get the maximum bounding rectangle (MBR) for this entry
+    std::shared_ptr<Rectangle> get_mbr() override;
+
+    // Get the largest Hilbert value (LHV) for this entry
+    HilbertValue get_lhv() override;
+
+    // Get the Node this entry belongs to
+    Node* get_node();
+
+    // Returns true if this entry is a LeafEntry
+    bool is_leaf_entry() override;
   private:
     Node* node_;
 };

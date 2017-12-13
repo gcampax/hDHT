@@ -37,26 +37,73 @@ class Node {
   public:
     typedef uint64_t HilbertValue;
 
+    // Node constructor
     Node();
+
+    // Node destructor
     ~Node();
-    bool isLeaf() const;
-    void setLeaf(bool status);
-    std::shared_ptr<Rectangle> getMBR();
-    HilbertValue getLHV();
-    void adjustMBR();
-    void adjustLHV();
-    std::vector<std::shared_ptr<NodeEntry>> getEntries() const;
-    void insertLeafEntry(std::shared_ptr<NodeEntry> entry);
-    void insertInternalEntry(std::shared_ptr<NodeEntry> entry);
-    Node* getParent() const;
-    Node* getPrevSibling() const;
-    Node* getNextSibling() const;
-    void setParent(Node* node);
-    void setPrevSibling(Node* node);
-    void setNextSibling(Node* node);
-    std::vector<Node*> getCooperatingSiblings();
-    void clearEntries();
-    bool hasCapacity() const;
+
+    // ----------//
+    // Accessors //
+    // ----------//
+
+    // Returns true if this Node is a leaf
+    bool is_leaf() const;
+
+    // Returns the maximum bounding rectangle (MBR) of the entries rooted at this Node
+    std::shared_ptr<Rectangle> get_mbr();
+
+    // Returns the largest Hilbert value (LHV) of the entries rooted at this Node
+    HilbertValue get_lhv();
+
+    // Returns the list of entries stored at this Node
+    std::vector<std::shared_ptr<NodeEntry>> get_entries() const;
+
+    // Returns a pointer to this Node's parent
+    Node* get_parent() const;
+
+    // Returns a pointer to this Node's previous sibling
+    Node* get_prev_sibling() const;
+
+    // Returns a pointer to this Node's next sibling
+    Node* get_next_sibling() const;
+
+    // Sets the Node to a leaf node if <status> is true
+    void set_leaf(bool status);
+
+    // Returns a list of nodes to assist with the overflow handling procedure
+    std::vector<Node*> get_cooperating_siblings();
+
+    // Returns true if the Node has less than kMaxCapacity entries
+    bool has_capacity() const;
+
+    // ----------//
+    // Modifiers //
+    // ----------//
+
+    // Adds <entry> to this Node, assuming this is a leaf node
+    void insert_leaf_entry(std::shared_ptr<NodeEntry> entry);
+
+    // Adds <entry> to this Node, assuming this is an internal node
+    void insert_internal_entry(std::shared_ptr<NodeEntry> entry);
+
+    // Sets the parent pointer of this Node
+    void set_parent(Node* node);
+
+    // Sets the previous sibling pointer of this Node
+    void set_prev_sibling(Node* node);
+
+    // Sets the next sibling pointer of this node
+    void set_next_sibling(Node* node);
+
+    // Clears all entries stored at this Node
+    void clear_entries();
+
+    // Recomputes the MBR for this Node
+    void adjust_mbr();
+
+    // Recomputes the LHV for this Node
+    void adjust_lhv();
 
   private:
     Node* parent_;

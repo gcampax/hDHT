@@ -33,26 +33,26 @@ namespace libhdht {
 
 namespace rtree {
 
-Node* RTreeHelper::chooseLeaf(Node* root, Node::HilbertValue hv_to_insert) {
+Node* RTreeHelper::choose_leaf(Node* root, Node::HilbertValue hv_to_insert) {
     if (root == nullptr) {
         return nullptr;
     }
 
-    if (root->isLeaf()) {
+    if (root->is_leaf()) {
         return root;
     }
 
-    auto it = root->getEntries().begin();
-    for (; it != root->getEntries().end(); it++) {
-        const auto hv = (*it)->getLHV();
+    auto it = root->get_entries().begin();
+    for (; it != root->get_entries().end(); it++) {
+        const auto hv = (*it)->get_lhv();
         if (hv > hv_to_insert) {
-            Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();
-            return RTreeHelper::chooseLeaf(node, hv_to_insert);
+            Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->get_node();
+            return RTreeHelper::choose_leaf(node, hv_to_insert);
         }
     }
 
-    Node* node = std::dynamic_pointer_cast<InternalEntry>(*--it)->getNode();
-    return RTreeHelper::chooseLeaf(node, hv_to_insert);
+    Node* node = std::dynamic_pointer_cast<InternalEntry>(*--it)->get_node();
+    return RTreeHelper::choose_leaf(node, hv_to_insert);
 }
 
 std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& query, Node* root) {
@@ -60,19 +60,18 @@ std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& que
     if (root == nullptr) {
         return results;
     }
-    if (root->isLeaf()) {
-        for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
-            assert(entry->isLeafEntry());
-            if (entry->getMBR()->intersects(query)) {
+    if (root->is_leaf()) {
+        for (std::shared_ptr<NodeEntry> entry : root->get_entries()) {
+            assert(entry->is_leaf_entry());
+            if (entry->get_mbr()->intersects(query)) {
                 results.push_back(std::static_pointer_cast<LeafEntry>(entry));
             }
         }
     } else {
-        for (std::shared_ptr<NodeEntry> entry : root->getEntries()) {
-            if (entry->getMBR()->intersects(query)) {
-                assert(!entry->isLeafEntry());
-                std::vector<std::shared_ptr<LeafEntry>> temp = search(query,
-                               std::static_pointer_cast<InternalEntry> (entry)->getNode());
+        for (std::shared_ptr<NodeEntry> entry : root->get_entries()) {
+            if (entry->get_mbr()->intersects(query)) {
+                assert(!entry->is_leaf_entry());
+                std::vector<std::shared_ptr<LeafEntry>> temp = search(query, std::static_pointer_cast<InternalEntry> (entry)->get_node());
                 results.reserve(results.size() + temp.size());
                 results.insert(results.end(), temp.begin(), temp.end());
             }
@@ -81,22 +80,21 @@ std::vector<std::shared_ptr<LeafEntry>> RTreeHelper::search(const Rectangle& que
     return results;
 }
 
-Node* RTreeHelper::handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
-                                  std::vector<Node*>& siblings) {
+Node* RTreeHelper::handle_overflow(Node* node, std::shared_ptr<NodeEntry> entry, std::vector<Node*>& siblings) {
     std::vector<std::shared_ptr<NodeEntry>> entries;
     std::vector<Node*>::iterator node_it;
     Node* new_node = nullptr;
 
     RTreeHelper::insert_entry(entries, entry);
-    siblings = node->getCooperatingSiblings();
+    siblings = node->get_cooperating_siblings();
     for (auto it = siblings.begin(); it != siblings.end(); it++) {
         Node* sibling = *it;
         if (sibling == nullptr) continue;
-        const std::vector<std::shared_ptr<NodeEntry>>& sibling_entries = sibling->getEntries();
+        const std::vector<std::shared_ptr<NodeEntry>>& sibling_entries = sibling->get_entries();
         for (auto e : sibling_entries) {
             RTreeHelper::insert_entry(entries, e);
         }
-        sibling->clearEntries();
+        sibling->clear_entries();
         if (sibling == node) {
             node_it = it;
         }
@@ -106,37 +104,36 @@ Node* RTreeHelper::handleOverflow(Node* node, std::shared_ptr<NodeEntry> entry,
     if (entries.size() >= total_capacity) {
         // We need a new node because there is no capacity in the existing nodes
         new_node = new Node();
-        new_node->setLeaf(entry->isLeafEntry());
+        new_node->set_leaf(entry->is_leaf_entry());
 
         // Adjust the sibling pointers as follows:
         // node_prev_sibling -> node
         // |-> node_prev_sibling -> new_node -> node
-        Node* node_prev_sibling = node->getPrevSibling();
+        Node* node_prev_sibling = node->get_prev_sibling();
         if (node_prev_sibling != nullptr) {
-            node_prev_sibling->setNextSibling(new_node);
+            node_prev_sibling->set_next_sibling(new_node);
         }
-        new_node->setPrevSibling(node->getPrevSibling());
-        node->setPrevSibling(new_node);
-        new_node->setNextSibling(node);
+        new_node->set_prev_sibling(node->get_prev_sibling());
+        node->set_prev_sibling(new_node);
+        new_node->set_next_sibling(node);
 
         // Insert the new node where the original node was
         siblings.insert(node_it, new_node);
     }
 
     // Redistribute the entries
-    RTreeHelper::distributeEntries(entries, siblings);
+    RTreeHelper::distribute_entries(entries, siblings);
 
     return new_node;
 }
 
-Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
-                              std::vector<Node*>& siblings) {
+Node* RTreeHelper::adjust_tree(Node* root, Node* node, Node* new_node, std::vector<Node*>& siblings) {
     Node* new_parent = nullptr;
     std::vector<Node*> local_siblings;
     std::vector<Node*> new_siblings;
     bool done = false;
     while (!done) {
-        Node* parent = node->getParent();
+        Node* parent = node->get_parent();
         if (parent == nullptr) {
             done = true;
 
@@ -144,31 +141,28 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
                 std::shared_ptr<InternalEntry> node_entry = std::make_shared<InternalEntry>(node);
                 std::shared_ptr<InternalEntry> new_node_entry = std::make_shared<InternalEntry>(new_node);
                 root = new Node();
-                root->setLeaf(false);
-                root->insertInternalEntry(node_entry);
-                root->insertInternalEntry(new_node_entry);
+                root->set_leaf(false);
+                root->insert_internal_entry(node_entry);
+                root->insert_internal_entry(new_node_entry);
             }
         } else {
             if (new_node != nullptr) {
-                std::shared_ptr<InternalEntry> new_node_entry =
-                    std::make_shared<InternalEntry>(new_node);
-                if (parent->hasCapacity()) {
-                    parent->insertInternalEntry(new_node_entry);
-                    parent->adjustLHV();
-                    parent->adjustMBR();
+                std::shared_ptr<InternalEntry> new_node_entry = std::make_shared<InternalEntry>(new_node);
+                if (parent->has_capacity()) {
+                    parent->insert_internal_entry(new_node_entry);
+                    parent->adjust_lhv();
+                    parent->adjust_mbr();
                     new_siblings.push_back(parent);
                 } else {
-                    new_parent = RTreeHelper::handleOverflow(parent,
-                                                             new_node_entry,
-                                                             new_siblings);
+                    new_parent = RTreeHelper::handle_overflow(parent, new_node_entry, new_siblings);
                 }
             } else {
                 new_siblings.push_back(parent);
             }
 
             for (auto& sibling : local_siblings) {
-                sibling->getParent()->adjustLHV();
-                sibling->getParent()->adjustMBR();
+                sibling->get_parent()->adjust_lhv();
+                sibling->get_parent()->adjust_mbr();
             }
 
             local_siblings.clear();
@@ -183,22 +177,20 @@ Node* RTreeHelper::adjustTree(Node* root, Node* node, Node* new_node,
     return root;
 }
 
-void RTreeHelper::distributeEntries(
-                        std::vector<std::shared_ptr<NodeEntry>>& entries,
-                        std::vector<Node*>& siblings) {
+void RTreeHelper::distribute_entries(std::vector<std::shared_ptr<NodeEntry>>& entries, std::vector<Node*>& siblings) {
     int entries_per_node = (int) (std::ceil(static_cast<float> (entries.size()) / siblings.size()));
 
     uint32_t entry_idx = 0;
     for (const auto& sibling : siblings) {
         for (int i = 0; i < entries_per_node && entry_idx < entries.size(); i++) {
-            if (entries[entry_idx]->isLeafEntry()) {
-                sibling->insertLeafEntry(entries[entry_idx++]);
+            if (entries[entry_idx]->is_leaf_entry()) {
+                sibling->insert_leaf_entry(entries[entry_idx++]);
             } else {
-                sibling->insertInternalEntry(entries[entry_idx++]);
+                sibling->insert_internal_entry(entries[entry_idx++]);
             }
         }
-        sibling->adjustLHV();
-        sibling->adjustMBR();
+        sibling->adjust_lhv();
+        sibling->adjust_mbr();
     }
 }
 
@@ -206,7 +198,7 @@ void RTreeHelper::insert_entry(std::vector<std::shared_ptr<NodeEntry>>& entries,
                                const std::shared_ptr<NodeEntry>& entry) {
     auto it = entries.begin();
     for (; it != entries.end(); it++) {
-        if ((*it)->getLHV() > entry->getLHV()) {
+        if ((*it)->get_lhv() > entry->get_lhv()) {
             entries.insert(it, entry);
             return;
         }

@@ -38,12 +38,16 @@ class RTree {
   public:
     typedef uint64_t HilbertValue;
 
+    // Rtree constructor
     // max_dimension: the maximum size in either dimension
     RTree(uint64_t max_dimension) : m_max_dimension(max_dimension), m_size(0), root_(nullptr) {}
+
+    // RTree destructor
     ~RTree() {
         delete root_;
     }
 
+    // RTree copy and assign
     RTree(const RTree&) = delete;
     RTree& operator=(const RTree&) = delete;
     RTree(RTree&& from) : m_max_dimension(from.m_max_dimension), m_size(from.m_size), root_(from.root_) {
@@ -65,11 +69,13 @@ class RTree {
         std::swap(root_, with.root_);
     }
 
+    // Return the size of this RTree
     size_t size() const
     {
         return m_size;
     }
 
+    // Insert <r>:<data> into this RTree
     void insert(const Point& r, void* data);
     std::vector<std::shared_ptr<LeafEntry>> search(const Rectangle& query) const
     {

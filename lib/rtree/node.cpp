@@ -38,38 +38,38 @@ Node::~Node() {
 
 }
 
-bool Node::isLeaf() const {
+bool Node::is_leaf() const {
     return leaf_;
 }
 
-void Node::setLeaf(bool status) {
+void Node::set_leaf(bool status) {
     leaf_ = status;
 }
 
-std::shared_ptr<Rectangle> Node::getMBR() {
+std::shared_ptr<Rectangle> Node::get_mbr() {
     return mbr_;
 }
 
-Node::HilbertValue Node::getLHV() {
+Node::HilbertValue Node::get_lhv() {
     return lhv_;
 }
 
-void Node::adjustMBR() {
+void Node::adjust_mbr() {
     if (entries_.size() == 0) {
         mbr_.reset(new Rectangle());
         return;
     }
-    std::shared_ptr<Rectangle> current_mbr = entries_[0]->getMBR();
-    const Point& current_mbr_upper = current_mbr->getUpper();
-    const Point& current_mbr_lower = current_mbr->getLower();
+    std::shared_ptr<Rectangle> current_mbr = entries_[0]->get_mbr();
+    const Point& current_mbr_upper = current_mbr->get_upper();
+    const Point& current_mbr_lower = current_mbr->get_lower();
 
     Point new_mbr_upper(current_mbr_upper);
     Point new_mbr_lower(current_mbr_lower);
 
     for (const auto& entry : entries_) {
-        std::shared_ptr<Rectangle> mbr = entry->getMBR();
-        const Point& upper = mbr->getUpper();
-        const Point& lower = mbr->getLower();
+        std::shared_ptr<Rectangle> mbr = entry->get_mbr();
+        const Point& upper = mbr->get_upper();
+        const Point& lower = mbr->get_lower();
 
         new_mbr_upper.first = std::max(upper.first, new_mbr_upper.first);
         new_mbr_upper.second = std::max(upper.second, new_mbr_upper.second);
@@ -81,51 +81,51 @@ void Node::adjustMBR() {
     mbr_.reset(new Rectangle(new_mbr_upper, new_mbr_lower));
 }
 
-void Node::adjustLHV() {
+void Node::adjust_lhv() {
     if (entries_.size() == 0) {
         lhv_ = kDefaultHilbertValue;
         return;
     }
 
-    const HilbertValue current_lhv = entries_[0]->getLHV();
+    const HilbertValue current_lhv = entries_[0]->get_lhv();
     HilbertValue new_lhv = current_lhv;
 
     for (const auto& entry : entries_) {
-        new_lhv = std::max(new_lhv, entry->getLHV());
+        new_lhv = std::max(new_lhv, entry->get_lhv());
     }
 
     lhv_ = new_lhv;
 }
 
-std::vector<std::shared_ptr<NodeEntry>> Node::getEntries() const {
+std::vector<std::shared_ptr<NodeEntry>> Node::get_entries() const {
     return entries_;
 }
 
-Node* Node::getParent() const {
+Node* Node::get_parent() const {
     return parent_;
 }
 
-Node* Node::getPrevSibling() const {
+Node* Node::get_prev_sibling() const {
     return prev_sibling_;
 }
 
-Node* Node::getNextSibling() const {
+Node* Node::get_next_sibling() const {
     return next_sibling_;
 }
 
-void Node::setParent(Node* node) {
+void Node::set_parent(Node* node) {
     this->parent_ = node;
 }
 
-void Node::setPrevSibling(Node* node) {
+void Node::set_prev_sibling(Node* node) {
     this->prev_sibling_ = node;
 }
 
-void Node::setNextSibling(Node* node) {
+void Node::set_next_sibling(Node* node) {
     this->next_sibling_ = node;
 }
 
-std::vector<Node*> Node::getCooperatingSiblings() {
+std::vector<Node*> Node::get_cooperating_siblings() {
     std::vector<Node*> cooperating_siblings;
 
     if (this->prev_sibling_ != nullptr) {
@@ -139,17 +139,17 @@ std::vector<Node*> Node::getCooperatingSiblings() {
     return cooperating_siblings;
 }
 
-void Node::clearEntries() {
+void Node::clear_entries() {
     entries_.clear();
 }
 
-void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
+void Node::insert_leaf_entry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is leaf
     // TODO(keshav2): Assert node has capacity
-    const HilbertValue entry_lhv = entry->getLHV();
+    const HilbertValue entry_lhv = entry->get_lhv();
     auto it = entries_.begin();
     for (; it != entries_.end(); it++) {
-        if (entry_lhv < (*it)->getLHV()) {
+        if (entry_lhv < (*it)->get_lhv()) {
             entries_.insert(it, entry);
             return;
         }
@@ -157,14 +157,14 @@ void Node::insertLeafEntry(std::shared_ptr<NodeEntry> entry) {
     entries_.insert(it, entry);
 }
 
-void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
+void Node::insert_internal_entry(std::shared_ptr<NodeEntry> entry) {
     // TODO(keshav2): Assert node is internal
     // TODO(keshav2): Assert node has capacity
-    const HilbertValue entry_lhv = entry->getLHV();
+    const HilbertValue entry_lhv = entry->get_lhv();
     auto it = entries_.begin();
     bool inserted = false;
     for (; it != entries_.end(); it++) {
-        if (entry_lhv < (*it)->getLHV()) {
+        if (entry_lhv < (*it)->get_lhv()) {
             it = entries_.insert(it, entry);
             inserted = true;
             break;
@@ -173,18 +173,18 @@ void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
     if (!inserted) {
         it = entries_.insert(it, entry);
     }
-    Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->getNode();;
+    Node* node = std::dynamic_pointer_cast<InternalEntry>(*it)->get_node();;
 
     // Set parent
-    node->setParent(this);
+    node->set_parent(this);
 
     // Set previous sibling
     if (it != entries_.begin()) {
         auto prev_it = it;
         prev_it--;
-    node->setPrevSibling(std::dynamic_pointer_cast<InternalEntry>(*prev_it)->getNode());
+    node->set_prev_sibling(std::dynamic_pointer_cast<InternalEntry>(*prev_it)->get_node());
     } else {
-        node->setPrevSibling(nullptr);
+        node->set_prev_sibling(nullptr);
     }
 
     // Set next sibling
@@ -193,13 +193,13 @@ void Node::insertInternalEntry(std::shared_ptr<NodeEntry> entry) {
     if (it != end) {
         auto next_it = it;
         next_it++;
-        node->setNextSibling(std::dynamic_pointer_cast<InternalEntry>(*next_it)->getNode());
+        node->set_next_sibling(std::dynamic_pointer_cast<InternalEntry>(*next_it)->get_node());
     } else {
-        node->setNextSibling(nullptr);
+        node->set_next_sibling(nullptr);
     }
 }
 
-bool Node::hasCapacity() const {
+bool Node::has_capacity() const {
     return entries_.size() < kMaxCapacity;
 }
 

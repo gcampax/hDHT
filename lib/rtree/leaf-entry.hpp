@@ -32,12 +32,22 @@ namespace rtree {
 // A data entry for an RTree leaf node.
 class LeafEntry : public NodeEntry {
   public:
+    // LeafEntry constructor
     LeafEntry(const Point& pt, HilbertValue lhv, void* data);
-    ~LeafEntry() {};
-    std::shared_ptr<Rectangle> getMBR() override;
-    HilbertValue getLHV() override;
-    bool isLeafEntry() override;
 
+    // LeafEntry destructor
+    ~LeafEntry() {};
+
+    // Get the maximum bounding rectangle (MBR) of this entry
+    std::shared_ptr<Rectangle> get_mbr() override;
+
+    // Get the largest Hilbert value (LHV) of this entry
+    HilbertValue get_lhv() override;
+
+    // Returns true if this entry is a LeafEntry
+    bool is_leaf_entry() override;
+
+    // Returns the data associated with this entry
     void *get_data() const
     {
         return m_data;
